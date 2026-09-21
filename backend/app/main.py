@@ -42,6 +42,17 @@ async def lifespan(_: FastAPI):
 def create_app() -> FastAPI:
     settings = get_settings()  # raises a clear error on missing/invalid settings
     app = FastAPI(title="Supplier-Client Matchmaking", lifespan=lifespan)
+
+    # Added before CORS so it runs inside it: 500s keep their CORS headers and the
+    # browser sees the error body instead of an opaque network failure.
+    @app.middleware("http")
+    async def unexpected_error(request: Request, call_next):
+        try:
+            return await call_next(request)
+        except Exception:
+            log.exception("Unhandled error on %s %s", request.method, request.url.path)
+            return _error(500, "internal_error", "Something went wrong on the server.")
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -61,11 +72,6 @@ def create_app() -> FastAPI:
             field = ".".join(loc[1:]) or loc[0]  # drop the "body"/"query" prefix
             fields[field] = err["msg"].removeprefix("Value error, ")
         return _error(422, "validation_error", "Some fields are invalid.", fields)
-
-    @app.exception_handler(Exception)
-    async def unexpected_error(_: Request, exc: Exception):
-        log.exception("Unhandled error", exc_info=exc)
-        return _error(500, "internal_error", "Something went wrong on the server.")
 
     for module in (matches, notifications, dashboard, dev):
         app.include_router(module.router)

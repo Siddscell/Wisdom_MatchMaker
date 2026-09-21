@@ -124,3 +124,20 @@ def test_dashboard_summary(client, db):
     assert summary["total_requirements"] == 1
     assert summary["total_matches"] == 1
     assert summary["matches_by_status"]["notified"] == 1
+
+
+def test_unexpected_error_keeps_shape_and_cors_headers(client):
+    from app.db import get_db
+    from app.main import app
+
+    def broken_db():
+        raise RuntimeError("boom")
+        yield  # pragma: no cover
+
+    app.dependency_overrides[get_db] = broken_db
+    try:
+        response = client.get("/api/dashboard/summary", headers={"Origin": "http://localhost:5173"})
+    finally:
+        app.dependency_overrides.clear()
+    assert_error(response, 500, "internal_error")
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
