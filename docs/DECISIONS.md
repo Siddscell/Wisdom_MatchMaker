@@ -66,7 +66,8 @@ Choices made where the spec was silent, and every deliberate deviation. One line
 ## India
 
 - **The platform targets India:** sample data uses Indian companies, cities and rupee prices; money shows as ₹ with Indian digit grouping (`en-IN`, e.g. ₹1,50,000); form hints use Indian cities. Reason: requested.
-- **Geocoding is restricted to India** (Nominatim `countrycodes=in`). Reason: "Nagpur" or "Thane" must not resolve to a namesake abroad. Remove the parameter if cross-border trade is added.
+- **Geocoding prefers India but is not restricted to it** (Nominatim `viewbox` over India, `bounded=0`). Reason: `countrycodes=in` put "Dubai" in Kerala, which broke the international delivery scope; the bias still keeps "Nagpur" and "Thane" in India. Known gap: a bare "Shanghai" still resolves to a village in Punjab, so write "Shanghai, China".
+- **Pairs with a semantic sub-score below `MIN_SEMANTIC` (0.1) are never stored.** Reason: price, quantity, delivery and location alone add up to 60, so a cheap, nearby "Pens" offering matched a "Pipe" requirement. 0.1 keeps "MS pipes" ↔ "mild steel tubes" (0.14).
 - **`quintal` (100 kg) added as a unit.** Reason: standard in Indian agricultural trade; converts within the mass family.
 - **Delivery radii unchanged** (local 100 km, regional 500 km, national 5000 km). Reason: 5000 km covers India end to end.
 - **Currency is still not a field:** all amounts are treated as INR.
@@ -78,6 +79,6 @@ Choices made where the spec was silent, and every deliberate deviation. One line
 - **One photo per listing**, uploaded by the browser straight to the public Supabase Storage bucket `listing-images`, into a folder named after the user's id (a storage policy enforces this). The listing stores only the URL. Reason: simplest path; several photos per listing can come later with a small table.
 - **The backend only accepts image URLs from that bucket.** Reason: it downloads the image to embed it, so any other URL would let users make the server fetch arbitrary addresses (SSRF).
 - **CLIP ViT-B/32 through fastembed** for photos; calibrated separately for photo↔photo and photo↔text on sample photos (AI_MATCHING.md). Reason: runs locally at no cost, and the library was already a dependency.
-- **A photo can only raise the meaning sub-score (`max(text, visual)`), never lower it.** Reason: CLIP was right 15/20 times on our sample, which is good evidence to add but not strong enough to veto text.
+- **When the text is confident (text semantic ≥ `TEXT_CONFIDENT`, 0.5) a photo can only raise the meaning sub-score; when the text is unsure, the photo evidence replaces it.** Reason: CLIP was right 15/20 times, not enough to veto confident text. But short names give unsure text ("Mirrors" ↔ "glass robot" cos 0.72, close to the true pair "MS pipes" ↔ "mild steel tubes" at 0.69), and on live data the photos separated every pair (true: photo↔photo ≥ 0.93, photo↔text ≥ 0.27; false: ≤ 0.57, ≤ 0.20).
 - **A photo that can't be downloaded or read is skipped** (logged); matching continues on text. Reason: never block a listing on its photo.
 - **Match emails are sent through Gmail SMTP** when `SMTP_PASSWORD` (a Google App Password) is set; the outbox always keeps a copy. The password is only ever typed into `backend/.env` and Supabase by the owner.

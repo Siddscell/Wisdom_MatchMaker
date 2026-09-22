@@ -36,7 +36,7 @@ def test_photo_vs_photo_and_photo_vs_text_use_their_own_scales():
     assert photo_vs_text == pytest.approx((0.30 - 0.23) / 0.09, abs=0.01)
 
 
-def test_photo_strengthens_but_never_weakens_the_match():
+def test_photo_strengthens_confident_text_and_decides_unsure_text():
     weak_text_cos = 0.60  # below SEMANTIC_FLOOR: text alone says "not similar"
     no_photo, _ = score_pair(listing(), listing(), weak_text_cos, 0, WEIGHTS)
     matching_photos, parts = score_pair(
@@ -48,6 +48,11 @@ def test_photo_strengthens_but_never_weakens_the_match():
         listing(image=unit(1)), listing(image=unit(0, 1)), strong_text_cos, 0, WEIGHTS
     )
     assert parts["semantic"] == 1.0 and parts["visual"] == 0.0
+    unsure_text_cos = 0.72  # text semantic ~0.25: short names like "Mirrors" vs "glass robot"
+    _, parts = score_pair(
+        listing(image=unit(1)), listing(image=unit(0, 1)), unsure_text_cos, 0, WEIGHTS
+    )
+    assert parts["semantic"] == 0.0  # photos disagree, so the pair is dropped
 
 
 def test_only_images_from_our_bucket_are_accepted():

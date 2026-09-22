@@ -14,6 +14,7 @@ log = logging.getLogger(__name__)
 
 EARTH_RADIUS_KM = 6371.0
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+_INDIA = "68,37,98,6"  # lon/lat box; preferred, not a restriction (see docs/DECISIONS.md)
 
 _lock = threading.Lock()
 _last_call = 0.0
@@ -57,7 +58,7 @@ def _nominatim(place: str) -> tuple[float | None, float | None]:
         try:
             response = httpx.get(
                 NOMINATIM_URL,
-                params={"q": place, "format": "json", "limit": 1, "countrycodes": "in"},
+                params={"q": place, "format": "json", "limit": 1, "viewbox": _INDIA, "bounded": 0},
                 headers={"User-Agent": "supplier-client-matchmaking/0.1"},
                 timeout=10,
             )

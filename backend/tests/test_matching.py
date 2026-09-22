@@ -100,3 +100,12 @@ def test_fair_match_is_stored_but_not_notified(db):
     match = db.scalars(select(Match)).one()
     assert (match.score, match.status) == (65.5, "new")
     assert db.scalar(select(func.count()).select_from(Notification)) == 0
+
+
+def test_unrelated_product_never_matches_on_logistics_alone(db):
+    r = add_requirement(db)
+    unrelated = [0.0, 1.0] + [0.0] * 382  # cosine 0 -> semantic 0
+    add_offering(db, "Unrelated", embedding=unrelated, unit_price=0.01, lead_time_days=0)
+    add_offering(db, "Related", unit_price=0.01, lead_time_days=0)
+    match_requirement(r.id)
+    assert matched_suppliers(db, r.id) == {"Related"}

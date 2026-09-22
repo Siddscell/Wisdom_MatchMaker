@@ -62,7 +62,7 @@ def _run(model: type[Requirement] | type[Offering], item_id: str) -> None:
         for other, cos, distance_km in _candidates(db, item):
             r, o = (item, other) if model is Requirement else (other, item)
             score, parts = score_pair(r, o, cos, distance_km, weights)
-            if score >= settings.MATCH_MIN_SCORE:
+            if score >= settings.MATCH_MIN_SCORE and parts["semantic"] >= settings.MIN_SEMANTIC:
                 scored.append((score, parts, r, o))
         scored.sort(key=lambda row: row[0], reverse=True)
 
@@ -103,8 +103,10 @@ def score_pair(
     text_semantic = scoring.semantic(cos, s.SEMANTIC_FLOOR, s.SEMANTIC_RANGE)
     visual = visual_similarity(r, o)
     parts = {
-        # A matching photo can only strengthen the evidence of meaning, never weaken it.
-        "semantic": max(text_semantic, visual or 0.0),
+        # Unsure text: photos decide. Confident text: a photo can only strengthen it.
+        "semantic": visual
+        if visual is not None and text_semantic < s.TEXT_CONFIDENT
+        else max(text_semantic, visual or 0.0),
         "price": scoring.price(o.unit_price * required_in_offer_units, r.budget),
         "quantity": scoring.quantity(
             units.convert(o.available_quantity, o.unit, r.unit), r.quantity

@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     VISUAL_IMAGE_RANGE: float = 0.16
     VISUAL_TEXT_FLOOR: float = 0.23  # photo <-> text
     VISUAL_TEXT_RANGE: float = 0.09
+    # Below this text semantic the text is unsure, so photos decide (up or down).
+    TEXT_CONFIDENT: float = 0.5
 
     STRICT_CATEGORY: bool = True
     MIN_QTY_FRACTION: float = 0.25
@@ -40,6 +42,8 @@ class Settings(BaseSettings):
     RETRIEVE_K: int = 30
     MAX_MATCHES_PER_ITEM: int = 10
     MATCH_MIN_SCORE: float = 60
+    # Below this the products are unrelated; price/stock/delivery/location alone can reach 60.
+    MIN_SEMANTIC: float = 0.1
     NOTIFY_MIN_SCORE: float = 70
     # Calibration of cosine similarity into 0..1: semantic = (cos - FLOOR) / RANGE.
     # Tuned on labelled seed pairs for bge-small (see docs/AI_MATCHING.md); retune per model.

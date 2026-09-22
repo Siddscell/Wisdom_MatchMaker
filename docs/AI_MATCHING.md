@@ -31,7 +31,7 @@ For a new requirement (a new offering is the mirror image):
 
    **Final** = `100 × (0.40 semantic + 0.20 price + 0.15 quantity + 0.15 delivery + 0.10 location)`,
    rounded to 2 decimals. The weights must sum to 1 or the app refuses to start.
-5. **Store** the top `MAX_MATCHES_PER_ITEM` (10) with score ≥ `MATCH_MIN_SCORE` (60): upsert on
+5. **Store** the top `MAX_MATCHES_PER_ITEM` (10) with score ≥ `MATCH_MIN_SCORE` (60) and semantic ≥ `MIN_SEMANTIC` (0.1): upsert on
    `(requirement_id, offering_id)`, updating score and `score_breakdown` but never `status`.
    `score_breakdown` keeps every sub-score plus the raw cosine and distance.
 6. **Notify** matches ≥ `NOTIFY_MIN_SCORE` (70) exactly once: the atomic `new → notified` update
@@ -118,8 +118,9 @@ off-topic results removed by eye):
 Calibration: `visual = clamp((cos − floor) / range)`, with the floor at the "different products"
 90th percentile (photo↔photo 0.64 / 0.16, photo↔text 0.23 / 0.09; all in config). CLIP matched
 15 of 20 photos to the right description first, which is useful but not perfect. So a photo can
-only **strengthen** a match: the meaning sub-score becomes `max(text, visual)`, and the hard
-filters still apply. `score_breakdown` keeps `text_semantic` and `visual` separately, so the
+only **strengthen** confident text (text semantic ≥ `TEXT_CONFIDENT`, 0.5): the meaning
+sub-score becomes `max(text, visual)`. When the text is unsure, which is common with short names
+like "Mirrors", the photo evidence replaces it in both directions. The hard filters still apply. `score_breakdown` keeps `text_semantic` and `visual` separately, so the
 learned ranker can later decide how much photos deserve.
 
 Limits: one photo per listing; top-K retrieval is still by text, so a listing whose text is far
