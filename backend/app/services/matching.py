@@ -107,11 +107,13 @@ def score_pair(
         "semantic": visual
         if visual is not None and text_semantic < s.TEXT_CONFIDENT
         else max(text_semantic, visual or 0.0),
-        "price": scoring.price(o.unit_price * required_in_offer_units, r.budget),
+        "price": scoring.price(
+            o.unit_price * required_in_offer_units, r.budget, s.MAX_BUDGET_FACTOR
+        ),
         "quantity": scoring.quantity(
             units.convert(o.available_quantity, o.unit, r.unit), r.quantity
         ),
-        "delivery": scoring.delivery(o.lead_time_days, r.needed_within_days),
+        "delivery": scoring.delivery(o.lead_time_days, r.needed_within_days, s.MAX_LEAD_FACTOR),
         "location": scoring.location(distance_km, r.location, o.location),
     }
     score = scoring.final(parts, weights)

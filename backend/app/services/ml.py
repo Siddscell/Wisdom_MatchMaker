@@ -4,7 +4,7 @@ Ranker: logistic regression on the stored sub-scores of decided matches. Its pos
 coefficients, normalised to sum to 1, become the scoring weights, blended with the WEIGHT_*
 prior in proportion to how much data exists (n / (n + RANKER_PRIOR_STRENGTH)). With no
 labels the weights are exactly the prior; the score scale (0-100) never changes, so the
-60/70 thresholds keep their meaning.
+55/70 thresholds keep their meaning.
 """
 
 import logging
@@ -26,7 +26,7 @@ _KEY = "ranker_weights"
 
 def fit_weights(X: np.ndarray, y: np.ndarray, prior: dict, prior_strength: int) -> dict:
     """Logistic regression (gradient descent, L2) -> non-negative weights summing to 1."""
-    # ponytail: linear model on 5 features; switch to LightGBM LambdaMART once there are
+    # Note: linear model on 5 features; switch to LightGBM LambdaMART once there are
     # thousands of decisions and interactions between features start to matter.
     w, b = np.zeros(X.shape[1]), 0.0
     for _ in range(2000):

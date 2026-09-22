@@ -1,7 +1,8 @@
 """Deterministic, idempotent sample data (India) that shows the matching engine at work.
 
 Deliberate cases (see comments): synonyms with no shared words, near misses that the
-hard filters must exclude (quantity, budget, lead time, distance, box vs piece),
+hard filters must exclude (quantity < 10%, price > 2x budget, lead > 3x deadline, distance,
+box vs piece), cross-category and partial-stock pairs the loose defaults now allow,
 same-category distractors, competing suppliers, and one supplier fitting several needs.
 Prices are in rupees (INR). Coordinates are included so the demo does not depend on a geocoder.
 """
@@ -81,9 +82,13 @@ OFFERINGS = [
     # "MS pipes": synonym (no shared words), a competitor, and three near misses
     ("Bharat Tubes", "sales@bharattubes.example.com", "Mild steel tubes, 50 mm OD", METALS, 5000, "kg", 68, "5% off above 3 tonnes", "Mumbai", 7, "regional", "Round tube, galvanised option"),
     ("Deccan Pipe Works", "sales@deccanpipe.example.com", "ERW mild steel pipe 2 inch", METALS, 1.5, "tonne", 70000, None, "Nagpur", 10, "national", None),
-    ("Sai Metals", "trade@saimetals.example.com", "MS pipes 2 inch", METALS, 3000, "kg", 120, None, "Mumbai", 5, "national", None),  # far over budget
-    ("QuickPipe Traders", "hello@quickpipe.example.com", "Mild steel pipes 2 inch", METALS, 300, "kg", 66, None, "Pune", 2, "local", None),  # too little stock
-    ("Konkan Steel", "orders@konkansteel.example.com", "MS pipe 2 inch, black", METALS, 10000, "kg", 60, None, "Mumbai", 60, "regional", None),  # too slow
+    ("Sai Metals", "trade@saimetals.example.com", "MS pipes 2 inch", METALS, 3000, "kg", 160, None, "Mumbai", 5, "national", None),  # 2.1x budget
+    ("QuickPipe Traders", "hello@quickpipe.example.com", "Mild steel pipes 2 inch", METALS, 150, "kg", 66, None, "Pune", 2, "local", None),  # 7.5% of need
+    ("Konkan Steel", "orders@konkansteel.example.com", "MS pipe 2 inch, black", METALS, 10000, "kg", 60, None, "Mumbai", 70, "regional", None),  # > 3x deadline
+    # Loose-matching demos: another category, partial stock, slightly over budget
+    ("Pune Hardware Mart", "counter@punehardware.example.com", "Galvanised iron pipes 2 inch for plumbing", BUILD, 1500, "kg", 72, None, "Pune", 4, "local", None),  # cross-category
+    ("Vasai Steel Stockist", "sales@vasaisteel.example.com", "MS round pipe 50 NB", METALS, 400, "kg", 64, None, "Thane", 3, "regional", None),  # 20% of need: fair
+    ("Surat Tube Co", "orders@surattube.example.com", "Mild steel ERW tube 2 inch", METALS, 4000, "kg", 80, None, "Surat", 8, "national", None),  # 1.07x budget
     ("Sheetkraft Industries", "sales@sheetkraft.example.com", "Cold rolled steel sheets 2 mm", METALS, 8000, "kg", 62, None, "Pune", 5, "local", None),  # distractor
     ("Hindustan Alloys", "export@hindalloys.example.com", "Aluminium ingots 99.7% purity", METALS, 20, "tonne", 230000, None, "Kolkata", 21, "national", None),
     ("Sagar Stainless", "sales@sagarstainless.example.com", "SS 304 plates 3 mm", METALS, 2, "tonne", 320000, None, "Ahmedabad", 14, "national", None),
@@ -94,7 +99,7 @@ OFFERINGS = [
     ("StripGlow", "sales@stripglow.example.com", "LED strip lights RGB 5m", ELEC, 2000, "piece", 75, None, "Delhi", 3, "national", None),  # distractor
     ("BoxedBulbs", "sales@boxedbulbs.example.com", "LED bulbs 9W warm white, box of 10", ELEC, 1000, "box", 700, None, "Noida", 3, "national", None),  # box != piece
     ("Thane Cables", "sales@thanecables.example.com", "2.5mm twin and earth copper wire", ELEC, 10000, "metre", 40, None, "Thane", 4, "regional", None),
-    ("Kolkata Wires", "export@kolkatawires.example.com", "PVC insulated copper wire 2.5 sqmm", ELEC, 50000, "metre", 30, None, "Kolkata", 35, "national", None),  # too slow
+    ("Kolkata Wires", "export@kolkatawires.example.com", "PVC insulated copper wire 2.5 sqmm", ELEC, 50000, "metre", 30, None, "Kolkata", 45, "national", None),  # > 3x deadline
     ("SunHarvest Energy", "b2b@sunharvest.example.com", "400 watt mono PERC solar modules", ELEC, 500, "piece", 12000, None, "Ahmedabad", 20, "national", None),
     ("BudgetSolar", "sales@budgetsolar.example.com", "Polycrystalline solar panel 330W", ELEC, 200, "piece", 9500, None, "Delhi", 10, "national", None),
     ("Circuit Supply Co", "trade@circuitsupply.example.com", "32 amp miniature circuit breaker, C curve", ELEC, 2000, "piece", 350, None, "Mumbai", 7, "national", None),
@@ -111,14 +116,14 @@ OFFERINGS = [
     ("Punjab Grains", "export@punjabgrains.example.com", "Long grain aromatic basmati rice, certified organic", FOOD, 20, "tonne", 130000, None, "Ludhiana", 28, "national", None),
     ("Azadpur Wholesale", "trade@azadpur.example.com", "Basmati rice premium, organic", FOOD, 1500, "kg", 145, None, "Delhi", 3, "local", None),
     ("Coimbatore Flour Mills", "orders@cbeflour.example.com", "Strong white bread flour (maida), 50 kg sacks", FOOD, 20000, "kg", 34, None, "Coimbatore", 2, "regional", None),
-    ("Artisan Mills", "sales@artisanmills.example.com", "Bread flour T65", FOOD, 10000, "kg", 33, None, "Chennai", 20, "regional", None),  # too slow
+    ("Artisan Mills", "sales@artisanmills.example.com", "Bread flour T65", FOOD, 10000, "kg", 33, None, "Chennai", 25, "regional", None),  # > 3x deadline
     ("Olivia Imports", "b2b@oliviaimports.example.com", "Cold pressed extra virgin olive oil in 5L tins", FOOD, 5000, "litre", 780, None, "Delhi", 14, "national", None),
     ("Suraj Oils", "sales@surajoils.example.com", "Refined sunflower oil", FOOD, 8000, "litre", 140, None, "Pune", 5, "regional", None),  # distractor
     ("Coorg Green Bean Traders", "trade@coorggreen.example.com", "Green arabica coffee, washed, 60kg bags", FOOD, 15000, "kg", 450, None, "Coimbatore", 25, "regional", None),
     ("Nagpur Citrus", "orders@nagpurcitrus.example.com", "Nagpur oranges, juicing grade", FOOD, 10000, "kg", 60, None, "Nagpur", 2, "local", None),
     # Construction
     ("Deccan Cement", "sales@deccancement.example.com", "OPC 53 cement, 50 kg bags", BUILD, 200, "tonne", 7800, None, "Hyderabad", 3, "local", None),
-    ("SmallBatch Cement", "hello@smallbatch.example.com", "Ordinary Portland cement", BUILD, 4, "tonne", 7500, None, "Hyderabad", 2, "local", None),  # too little stock
+    ("SmallBatch Cement", "hello@smallbatch.example.com", "Ordinary Portland cement", BUILD, 1.5, "tonne", 7500, None, "Hyderabad", 2, "local", None),  # 7.5% of need
     ("Nagpur TMT Bars", "sales@nagpurtmt.example.com", "12 mm TMT rebar, Fe 500D, 12 m lengths", BUILD, 50, "tonne", 58000, None, "Nagpur", 10, "national", None),
     ("Morbi Ceramics", "export@morbiceramics.example.com", "600x600 vitrified porcelain floor tiles", BUILD, 10000, "piece", 380, None, "Rajkot", 35, "national", None),
     ("Coromandel Insulation", "sales@coromandel.example.com", "Glass wool insulation roll 100mm", BUILD, 1000, "piece", 1700, None, "Bengaluru", 7, "regional", None),

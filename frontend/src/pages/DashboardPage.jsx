@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client.js';
 import DataTable from '../components/DataTable.jsx';
 import { EmptyState, QueryState, ScoreBar, StatusBadge, Thumb } from '../components/ui.jsx';
@@ -45,7 +45,8 @@ function NoData() {
 
 function RequirementsTab({ categories }) {
   const [filters, setFilters] = useState({ category: '', status: '' });
-  const query = useListings('requirements', filters);
+  const q = useSearchParams()[0].get('q') ?? '';
+  const query = useListings('requirements', { ...filters, q });
   const set = (key) => (value) => setFilters((f) => ({ ...f, [key]: value }));
   return (
     <>
@@ -114,7 +115,8 @@ function RequirementsTab({ categories }) {
 
 function OfferingsTab({ categories }) {
   const [filters, setFilters] = useState({ category: '', status: '' });
-  const query = useListings('offerings', filters);
+  const q = useSearchParams()[0].get('q') ?? '';
+  const query = useListings('offerings', { ...filters, q });
   const set = (key) => (value) => setFilters((f) => ({ ...f, [key]: value }));
   return (
     <>
@@ -199,7 +201,7 @@ function MatchesTab() {
           label="Minimum score"
           value={filters.min_score}
           onChange={set('min_score')}
-          options={['60', '70', '85']}
+          options={['55', '70', '85']}
         />
       </Filters>
       <QueryState query={query} empty={<NoData />}>
@@ -284,22 +286,22 @@ function DevTools() {
   const failed = seed.error ?? rematch.error;
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <button
+      {/* <button
         type="button"
         className="btn-primary"
         disabled={seed.isPending}
         onClick={() => seed.mutate()}
       >
         {seed.isPending ? 'Loading…' : 'Load sample data'}
-      </button>
-      <button
+      </button> */}
+      {/* <button
         type="button"
         className="btn-secondary"
         disabled={rematch.isPending}
         onClick={() => rematch.mutate()}
       >
         Recompute matches
-      </button>
+      </button> */}
       <p role="status" className="w-full text-xs text-muted">
         {failed ? <span className="text-danger">{failed.message}</span> : done?.message}
       </p>
@@ -309,7 +311,14 @@ function DevTools() {
 
 export default function DashboardPage() {
   const { meta } = useOutletContext();
-  const [tab, setTab] = useState(TABS[0]);
+  // A search is for items to buy: show offerings, also when a new search arrives on this page.
+  const q = useSearchParams()[0].get('q') ?? '';
+  const [tab, setTab] = useState(q ? 'Offerings' : TABS[0]);
+  const [searched, setSearched] = useState(q);
+  if (q !== searched) {
+    setSearched(q);
+    if (q) setTab('Offerings');
+  }
   const tabRefs = useRef([]);
   const categories = meta.data?.categories ?? [];
 

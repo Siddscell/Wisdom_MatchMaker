@@ -13,9 +13,9 @@ import {
   Thumb,
 } from '../components/ui.jsx';
 import { useMatches, useMyListings } from '../hooks/queries.js';
-import { formatINR, formatNumber } from '../lib/format.js';
+import { formatDate, formatINR, formatNumber } from '../lib/format.js';
 import { offeringSchema, requirementSchema } from '../lib/schemas.js';
-import { uploadListingImage } from '../lib/supabase.js';
+import { supabase, uploadListingImage } from '../lib/supabase.js';
 
 /** Form values -> API payload: uploads a newly chosen photo, else keeps the current one. */
 async function toPayload({ photo, ...values }, currentUrl = null) {
@@ -24,6 +24,29 @@ async function toPayload({ photo, ...values }, currentUrl = null) {
 }
 
 const suggestCategory = (text) => api.suggestCategory(text);
+
+/** Live helpers: a positive number or null; a day count as "today" / "by 6 Oct 2026". */
+const positive = (value) => (Number(value) > 0 ? Number(value) : null);
+const inDays = (value) => {
+  const days = Number(value);
+  if (value === '' || !Number.isInteger(days) || days < 0 || days > 3650) return null;
+  return days ? `by ${formatDate(Date.now() + days * 86_400_000)}` : 'today';
+};
+
+// Last location/unit/scope pre-fill the next form. Storage can be blocked: then start empty.
+const REMEMBERED = ['location', 'unit', 'delivery_scope'];
+function remembered(role, values) {
+  try {
+    const key = `wisdom:last-${role}`;
+    if (!values) return JSON.parse(localStorage.getItem(key)) ?? {};
+    localStorage.setItem(
+      key,
+      JSON.stringify(Object.fromEntries(REMEMBERED.map((k) => [k, values[k]]))),
+    );
+  } catch {
+    return {};
+  }
+}
 
 const ROLES = {
   client: {
@@ -55,8 +78,17 @@ const ROLES = {
         label: 'Budget (total, ₹)',
         type: 'number',
         hint: 'For the whole quantity. Private to you.',
+        live: ({ budget, quantity, unit }) =>
+          positive(budget) &&
+          positive(quantity) &&
+          `≈ ${formatINR(budget / quantity)} per ${unit || 'unit'}`,
       },
-      { name: 'needed_within_days', label: 'Delivery timeline (days)', type: 'number' },
+      {
+        name: 'needed_within_days',
+        label: 'Delivery timeline (days)',
+        type: 'number',
+        live: ({ needed_within_days: days }) => inDays(days) && `Needed ${inDays(days)}`,
+      },
       { name: 'notes', label: 'Additional notes', type: 'textarea', wide: true, optional: true },
       {
         name: 'photo',
@@ -101,8 +133,15 @@ const ROLES = {
         label: 'Unit price (₹)',
         type: 'number',
         hint: 'Per unit. Private to you.',
+        live: ({ unit_price: price, available_quantity: qty }) =>
+          positive(price) && positive(qty) && `Stock worth ${formatINR(price * qty)}`,
       },
-      { name: 'lead_time_days', label: 'Lead time (days)', type: 'number' },
+      {
+        name: 'lead_time_days',
+        label: 'Lead time (days)',
+        type: 'number',
+        live: ({ lead_time_days: days }) => inDays(days) && `Ready to ship ${inDays(days)}`,
+      },
       {
         name: 'delivery_scope',
         label: 'Delivery scope',
@@ -278,6 +317,57 @@ function MyListings({ role, meta }) {
   );
 }
 
+/** Users created or invited from the Supabase dashboard arrive without a role (or password). */
+function FinishAccount() {
+  const [error, setError] = useState('');
+  const submit = async (event) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const password = String(form.get('password'));
+    const { error: failure } = await supabase.auth.updateUser({
+      ...(password && { password }),
+      data: { role: form.get('role'), company: String(form.get('company')).trim() },
+    });
+    if (failure) setError(failure.message); // on success the session updates and the portal renders
+  };
+  return (
+    <form onSubmit={submit} className="card mx-auto grid max-w-md gap-4">
+      <h1 className="text-2xl font-semibold">Finish your account</h1>
+      <fieldset className="flex gap-4 text-sm">
+        <legend className="label mb-1.5">I am a</legend>
+        <label>
+          <input type="radio" name="role" value="client" required /> Client (buyer)
+        </label>
+        <label>
+          <input type="radio" name="role" value="supplier" /> Supplier
+        </label>
+      </fieldset>
+      <label className="label">
+        Company
+        <input name="company" className="input mt-1.5" required minLength={2} />
+      </label>
+      <label className="label">
+        New password <span className="font-normal text-muted">(needed if you were invited)</span>
+        <input
+          name="password"
+          type="password"
+          className="input mt-1.5"
+          minLength={6}
+          autoComplete="new-password"
+        />
+      </label>
+      {error && (
+        <p role="alert" className="text-sm text-danger">
+          {error}
+        </p>
+      )}
+      <button type="submit" className="btn-primary">
+        Continue
+      </button>
+    </form>
+  );
+}
+
 export default function MyDashboardPage() {
   const { session, account, meta } = useOutletContext();
   const queryClient = useQueryClient();
@@ -288,15 +378,12 @@ export default function MyDashboardPage() {
   const role = account.role;
   const config = ROLES[role];
   if (!config) {
-    return (
-      <EmptyState title="Your account has no role">
-        Register again as a client or a supplier.
-      </EmptyState>
-    );
+    return <FinishAccount />;
   }
 
   const submit = async (values) => {
     setCreated(await api[config.table].create(await toPayload(values)));
+    remembered(role, values);
     queryClient.invalidateQueries({ queryKey: [config.table] });
     queryClient.invalidateQueries({ queryKey: ['summary'] });
   };
@@ -339,7 +426,7 @@ export default function MyDashboardPage() {
               key={created?.id ?? 'new'}
               fields={config.fields(meta.data)}
               schema={config.schema(meta.data)}
-              defaultValues={{ [nameField]: account.company }}
+              defaultValues={{ [nameField]: account.company, ...remembered(role) }}
               submitLabel={config.submitLabel}
               onSubmit={submit}
             />

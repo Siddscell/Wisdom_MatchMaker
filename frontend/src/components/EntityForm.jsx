@@ -1,5 +1,5 @@
-import { useId, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useEffect, useId, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { ApiError } from '../api/client.js';
 import { zodResolver } from '../lib/schemas.js';
 
@@ -7,8 +7,10 @@ import { zodResolver } from '../lib/schemas.js';
  * @typedef {{ name: string, label: string, type?: 'text'|'email'|'number'|'textarea'|'select',
  *   options?: string[], hint?: string, wide?: boolean, optional?: boolean,
  *   suggest?: (value: string) => Promise<Record<string, string|null>>,
- *   current?: string }} FieldSpec  (type 'photo': a file input; `current` is the existing photo URL)
+ *   current?: string, live?: (values: Record<string, any>) => string|null|undefined }} FieldSpec
+ *   (type 'photo': a file input; `current` is the existing photo URL)
  *   suggest: on blur, fills still-empty fields from the returned values.
+ *   live: a helper line computed from the current values as the user types.
  */
 
 function PhotoInput({ common, current }) {
@@ -68,8 +70,17 @@ export default function EntityForm({ fields, schema, defaultValues, submitLabel,
     setError,
     getValues,
     setValue,
+    setFocus,
+    control,
     formState: { errors, isSubmitting },
   } = useForm({ resolver: zodResolver(schema), defaultValues });
+  const values = useWatch({ control });
+
+  // Start typing where input is needed: the first field without a value.
+  useEffect(() => {
+    const first = fields.find((f) => f.type !== 'photo' && !getValues(f.name));
+    if (first) setFocus(first.name);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const register = (name) => {
     const spec = fields.find((f) => f.name === name);
@@ -99,7 +110,12 @@ export default function EntityForm({ fields, schema, defaultValues, submitLabel,
       {fields.map((field) => {
         const id = `${formId}-${field.name}`;
         const error = errors[field.name]?.message;
-        const describedBy = [field.hint && `${id}-hint`, error && `${id}-error`]
+        const live = field.live?.(values);
+        const describedBy = [
+          field.hint && `${id}-hint`,
+          live && `${id}-live`,
+          error && `${id}-error`,
+        ]
           .filter(Boolean)
           .join(' ');
         return (
@@ -120,6 +136,15 @@ export default function EntityForm({ fields, schema, defaultValues, submitLabel,
             {field.hint && (
               <p id={`${id}-hint`} className="mt-1 text-xs text-muted">
                 {field.hint}
+              </p>
+            )}
+            {live && (
+              <p
+                id={`${id}-live`}
+                aria-live="polite"
+                className="mt-1 text-xs font-medium text-accent-strong"
+              >
+                {live}
               </p>
             )}
             {error && (

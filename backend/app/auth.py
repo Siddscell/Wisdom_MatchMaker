@@ -21,7 +21,7 @@ class User:
 def _verify(authorization: str) -> User:
     settings = get_settings()
     try:
-        # ponytail: one Supabase round trip per authed request; verify the JWT locally
+        # Note: one Supabase round trip per authed request; verify the JWT locally
         # against the project's JWKS if this latency ever matters.
         response = httpx.get(
             f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1/user",

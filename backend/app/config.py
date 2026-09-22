@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL: str = "BAAI/bge-small-en-v1.5"
     EMBEDDING_DIM: int = 384
     # Visual matching (CLIP). Photos and text share one space but on different scales, so each
-    # comparison has its own calibration, measured on sample photos (docs/AI_MATCHING.md).
+    # comparison has its own calibration, measured on sample photos.
     CLIP_IMAGE_MODEL: str = "Qdrant/clip-ViT-B-32-vision"
     CLIP_TEXT_MODEL: str = "Qdrant/clip-ViT-B-32-text"
     VISUAL_IMAGE_FLOOR: float = 0.64  # photo <-> photo
@@ -35,18 +35,19 @@ class Settings(BaseSettings):
     # Below this text semantic the text is unsure, so photos decide (up or down).
     TEXT_CONFIDENT: float = 0.5
 
-    STRICT_CATEGORY: bool = True
-    MIN_QTY_FRACTION: float = 0.25
-    MAX_LEAD_FACTOR: float = 2.0
-    MAX_BUDGET_FACTOR: float = 1.5
-    RETRIEVE_K: int = 30
+    # Loose by default: cross-category pairs pass, MIN_SEMANTIC still drops unrelated ones.
+    STRICT_CATEGORY: bool = False
+    MIN_QTY_FRACTION: float = 0.1
+    MAX_LEAD_FACTOR: float = 3.0
+    MAX_BUDGET_FACTOR: float = 2.0
+    RETRIEVE_K: int = 50
     MAX_MATCHES_PER_ITEM: int = 10
-    MATCH_MIN_SCORE: float = 60
-    # Below this the products are unrelated; price/stock/delivery/location alone can reach 60.
+    MATCH_MIN_SCORE: float = 55
+    # Below this the products are unrelated; price/stock/delivery/location alone can reach 55.
     MIN_SEMANTIC: float = 0.1
     NOTIFY_MIN_SCORE: float = 70
     # Calibration of cosine similarity into 0..1: semantic = (cos - FLOOR) / RANGE.
-    # Tuned on labelled seed pairs for bge-small (see docs/AI_MATCHING.md); retune per model.
+    # Tuned on labelled seed pairs for bge-small; retune per model.
     # Learned ranker: weights move from the WEIGHT_* prior to learned values as labels
     # accumulate; at RANKER_PRIOR_STRENGTH labels, learned and prior count equally.
     RANKER_PRIOR_STRENGTH: int = 50
@@ -82,6 +83,8 @@ class Settings(BaseSettings):
         total = sum(self.weights.values())
         if abs(total - 1) > 1e-6:
             raise ValueError(f"WEIGHT_* settings must sum to 1.0 (they sum to {total:g})")
+        if min(self.MAX_BUDGET_FACTOR, self.MAX_LEAD_FACTOR) <= 1:
+            raise ValueError("MAX_BUDGET_FACTOR and MAX_LEAD_FACTOR must be greater than 1")
         if self.EMAIL_BACKEND == "smtp" and not (self.SMTP_HOST and self.SMTP_FROM):
             raise ValueError("EMAIL_BACKEND=smtp requires SMTP_HOST and SMTP_FROM")
         return self

@@ -20,3 +20,10 @@ frontend/dist/
 # Tooling
 .coverage
 htmlcov/
+
+# Internal notes, not part of the submission
+docs/
+AGENTS.md
+PROJECT_SPEC.md
+supabase/*
+!supabase/migrations/

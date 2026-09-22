@@ -37,7 +37,7 @@ def model_loaded() -> bool:
 
 def record_text(product: str, notes: str | None) -> str:
     # Category is left out on purpose: it is a hard filter, and a shared suffix on both
-    # sides inflates similarity between unrelated products (see docs/DECISIONS.md).
+    # sides inflates similarity between unrelated products.
     return f"{product} | {notes}" if notes else product
 
 

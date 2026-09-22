@@ -7,9 +7,9 @@ Owner (logged in, right role): create, /mine, edit, open/close.
 from collections.abc import Callable
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.auth import ROLE_TABLE, User, current_user, optional_user
@@ -68,11 +68,23 @@ def _router(
         tasks.add_task(run_matching, item.id)  # runs after the response is sent
         return item
 
+    names = ("product_requirement", "product_offered", "client_name", "supplier_name")
+    search_cols = [model.category, model.location] + [
+        getattr(model, n) for n in names if hasattr(model, n)
+    ]
+
     @router.get("", response_model=list[schema_public])
     def list_public(
-        category: str | None = None, status: str | None = None, db: Session = Depends(get_db)
+        category: str | None = None,
+        status: str | None = None,
+        q: str | None = Query(None, max_length=200),
+        db: Session = Depends(get_db),
     ):
         stmt = select(model).order_by(model.created_at.desc())
+        if q and q.strip():
+            # Note: substring match; swap for embedding search if users type synonyms
+            pattern = f"%{q.strip()}%"
+            stmt = stmt.where(or_(*(col.ilike(pattern) for col in search_cols)))
         if category:
             stmt = stmt.where(model.category == category)
         if status:
