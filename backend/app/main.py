@@ -2,7 +2,7 @@ import logging
 import threading
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -13,11 +13,21 @@ from starlette.exceptions import HTTPException
 from app.api import dashboard, dev, items, matches, notifications
 from app.config import get_settings
 from app.constants import CATEGORIES, DELIVERY_SCOPES, UNIT_FAMILIES
-from app.db import SessionLocal
+from app.db import SessionLocal, get_db
 from app.services.embedding import get_model, model_loaded
+from app.services.ml import suggest_category
 
 log = logging.getLogger(__name__)
-_CODES = {400: "bad_request", 404: "not_found", 405: "method_not_allowed", 409: "conflict"}
+_CODES = {
+    400: "bad_request",
+    401: "unauthorized",
+    403: "forbidden",
+    404: "not_found",
+    405: "method_not_allowed",
+    409: "conflict",
+    422: "validation_error",
+    503: "unavailable",
+}
 
 
 def _error(status: int, code: str, message: str, fields: dict | None = None) -> JSONResponse:
@@ -102,6 +112,10 @@ def create_app() -> FastAPI:
             },
             "dev_mode": settings.ENV != "production",
         }
+
+    @app.get("/api/categories/suggest")
+    def category_suggestion(text: str = Query(min_length=2, max_length=2000), db=Depends(get_db)):
+        return {"category": suggest_category(db, text)}
 
     return app
 

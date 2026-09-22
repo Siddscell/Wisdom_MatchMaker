@@ -14,11 +14,10 @@ Choices made where the spec was silent, and every deliberate deviation. One line
 - **Notify-once is enforced by a conditional `UPDATE … WHERE status='new'`.** Reason: it stays correct under concurrent matching runs without locks.
 - **Seed data carries coordinates.** Reason: a deterministic demo that works offline and shows distance filtering. User-entered records are geocoded.
 - **Geocoding misses ("no such place") are cached; network errors are not.** Reason: don't hammer Nominatim for unknown places, but retry after transient failures.
-- **No update endpoints for requirements/offerings.** Reason: not in the API table. "Re-embed on change" therefore has nothing to trigger yet, and matching still runs on create and on rematch.
 
 ## API and data
 
-- **Emails are trimmed and lower-cased** on input and in `email` filters. Reason: "acting as" lookups must not depend on capitalisation.
+- **Emails are trimmed and lower-cased** everywhere they are compared. Reason: ownership and notification lookups must not depend on capitalisation.
 - **Reserved TLDs (`.test`, `.local`, …) are rejected** by email validation. Seed data uses `*.example.com`. Reason: default `email-validator` behaviour, and fine for real addresses.
 - **Unknown request fields are rejected (422).** Reason: catches client typos early.
 - **Response keys are snake_case everywhere** (the previous `/api/meta` used camelCase). Reason: one convention across the API.
@@ -32,7 +31,7 @@ Choices made where the spec was silent, and every deliberate deviation. One line
 
 - **Alembic is kept, but only as a runner for the plain SQL files** in `supabase/migrations/` (they remain the source of truth). Reason: gives people without `psql` a one-command setup and tracks what was applied. RLS is also enabled on `alembic_version`, because Supabase exposes `public` tables to the anon key.
 - **Migration 0002 creates a `nologin` `anon` role if missing and adds `notifications` to `supabase_realtime` only if that publication exists.** Reason: the same files work on Supabase and on plain Postgres (tests, CI), and Realtime does not fire without the publication.
-- **Demo-grade caveat: the `anon` select policy on `notifications` lets anyone holding the anon key read *all* notifications** (recipient emails and messages). Reason: Realtime needs a read policy and there is no login. With real auth, restrict it to `recipient_email = auth.email()`.
+- **Notifications are readable only by their recipient** (migration 0003: `authenticated` users, `recipient_email = auth.jwt() ->> 'email'`), replacing the earlier demo policy that let the anon key read all of them.
 - **The DB engine disables psycopg prepared statements** (`prepare_threshold=None`). Reason: safe behind any Supabase pooler mode.
 - **`postgresql://` URLs are rewritten to `postgresql+psycopg://`.** Reason: Supabase's copy-paste URL then just works.
 - **CI runs database tests against a `pgvector/pgvector:pg16` GitHub service container.** Reason: the matching tests need real pgvector. This adds no Docker files to the repo (the spec's non-goal).
@@ -46,6 +45,20 @@ Choices made where the spec was silent, and every deliberate deviation. One line
 - **The frontend accepts `VITE_SUPABASE_ANON_KEY` or `VITE_SUPABASE_PUBLISHABLE_KEY`.** Reason: Supabase renamed the anon key to "publishable".
 - **Notification polling continues while the tab is hidden** (`refetchIntervalInBackground`). Reason: the bell count is current when the user returns. Other lists pause in the background.
 - **Match lists and the summary refresh every 10 seconds.** Reason: matching finishes after the form response, and fair matches (< 70) produce no notification to trigger a refresh.
-- **Accept/Reject is available in the portals as well as the dashboard.** Reason: it's where a user reviews their own matches. No new endpoint was needed.
 - **Currency is not modelled.** Budgets and prices are plain numbers assumed to be in one currency.
 - **Fonts load from Google Fonts** (Fraunces + IBM Plex Sans) with system fallbacks. Reason: a distinctive pairing with no bundled font files.
+
+## Accounts, dashboards and learning (added after the original spec)
+
+- **Login is now in scope** (the spec listed it as a non-goal): Supabase Auth, email + password. Reason: requested, so suppliers and clients can register and get their own dashboard.
+- **The backend verifies tokens by calling Supabase's `/auth/v1/user`**, not by checking JWTs locally. Reason: works with both legacy and new signing keys and needs no JWT library. Cost: one round trip per logged-in request (marked `ponytail:` for JWKS verification later).
+- **Role (client/supplier) and company are stored in the Supabase user metadata at sign-up.** Clients can only post requirements, suppliers only offerings.
+- **A listing belongs to the account whose verified email created it** (`contact_email`, set from the token and no longer a form field). There's no separate owner column. Reason: the email already identifies the owner, and seed listings stay claimable by registering their email. Caveat: changing the account email loses ownership.
+- **Public dashboard: listings and match scores without contact emails, budgets or prices; no notifications tab.** Matches show contact emails only to the two parties, and only once accepted.
+- **Only a party to a match may accept or reject it** (403 otherwise).
+- **Edits re-embed only when the product or notes text changed, and re-geocode only when the location changed**, then re-match. Closing a listing stops new matching, and reopening re-matches.
+- **The learned ranker is a numpy logistic regression, not LightGBM.** Reason: with tens of labels, gradient-boosted trees overfit and a new dependency isn't justified; the weights blend with the prior until data accumulates (see AI_MATCHING.md).
+- **No cross-encoder reranker.** Reason: measured, and none beat the existing embeddings on our data (table in AI_MATCHING.md).
+- **Category suggestion comes from the nearest existing listing (1-NN), not zero-shot.** Reason: 76/76 vs 47/76 on the seed data. It's only a suggestion that fills an empty field, and users can change it.
+- **Kept as code, not learned:** unit conversion and the hard filters. Reason: they're facts or explicit business limits (all configurable), and a model would only learn them approximately.
+- **The frontend smoke test no longer covers the logged-out redirect.** Reason: jsdom's `AbortSignal` is incompatible with React Router navigation in tests; the redirect is one `<Navigate>`.

@@ -8,6 +8,7 @@
 | **API** (FastAPI, `backend/app/api/`) | Thin routers: validate input (Pydantic), call services, shape responses. No business logic. |
 | **Services** (`backend/app/services/`) | `matching` (pipeline), `scoring` (pure functions, no I/O), `embedding` (local model), `units`, `geo` (geocoding + distance), `notifications`, `email`. |
 | **Database** (Postgres + pgvector, Supabase) | Tables, vector index, constraints. Schema lives in `supabase/migrations/*.sql`. |
+| **Supabase Auth** | Email + password accounts. The frontend logs in with supabase-js and sends the access token; the backend asks Supabase who it belongs to (`app/auth.py`). |
 | **Embedding model** | `BAAI/bge-small-en-v1.5` through `fastembed` (ONNX, CPU, ~70 MB), loaded once per process. |
 
 Layering: routers → services → models. Only the matching service knows the pipeline order.
@@ -41,8 +42,10 @@ flowchart LR
 5. Matches ≥ 70 flip `new → notified` in one conditional `UPDATE`. Only the run that wins that
    update creates the two notifications and two emails, so nobody is notified twice.
 6. The browser gets new notifications through Supabase Realtime, or by polling.
-7. Accept/reject: `PATCH /api/matches/{id}/status`, allowed only from `new|notified` (else 409).
-   Contact emails appear in match listings only after acceptance.
+7. Accept/reject: `PATCH /api/matches/{id}/status`, only by one of the two parties (else 403) and
+   only from `new|notified` (else 409). Each decision retrains the ranker weights in the background
+   (`services/ml.py`), and later match runs use them. Contact emails appear only to the parties of
+   an accepted match.
 
 ## Scalability notes
 

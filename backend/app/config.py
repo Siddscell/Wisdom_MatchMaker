@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     ENV: Literal["development", "production"] = "development"
     DATABASE_URL: str  # required: fail fast when missing
     CORS_ORIGINS: str = "http://localhost:5173"
+    # Supabase Auth: the backend asks Supabase who a bearer token belongs to.
+    SUPABASE_URL: str  # required, e.g. https://<project-ref>.supabase.co
+    SUPABASE_ANON_KEY: str  # anon / publishable key (never service_role)
 
     EMBEDDING_MODEL: str = "BAAI/bge-small-en-v1.5"
     EMBEDDING_DIM: int = 384
@@ -32,6 +35,9 @@ class Settings(BaseSettings):
     NOTIFY_MIN_SCORE: float = 70
     # Calibration of cosine similarity into 0..1: semantic = (cos - FLOOR) / RANGE.
     # Tuned on labelled seed pairs for bge-small (see docs/AI_MATCHING.md); retune per model.
+    # Learned ranker: weights move from the WEIGHT_* prior to learned values as labels
+    # accumulate; at RANKER_PRIOR_STRENGTH labels, learned and prior count equally.
+    RANKER_PRIOR_STRENGTH: int = 50
     SEMANTIC_FLOOR: float = 0.65
     SEMANTIC_RANGE: float = 0.28
 

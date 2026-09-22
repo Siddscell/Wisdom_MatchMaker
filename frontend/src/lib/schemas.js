@@ -8,7 +8,6 @@ const text = (min, max) =>
     .min(min, min === 1 ? 'Required' : `At least ${min} characters`)
     .max(max, `At most ${max} characters`);
 const optionalText = z.string().trim().max(2000, 'At most 2000 characters').optional();
-const email = z.string().trim().toLowerCase().email('Enter a valid email address');
 const positive = z.coerce
   .number({ invalid_type_error: 'Enter a number' })
   .positive('Must be greater than 0');
@@ -24,7 +23,6 @@ const oneOf = (values, message) => z.string().refine((v) => values.includes(v), 
 export function requirementSchema(meta) {
   return z.object({
     client_name: text(2, 200),
-    contact_email: email,
     product_requirement: text(2, 2000),
     category: oneOf(meta.categories, 'Choose a category'),
     quantity: positive,
@@ -40,7 +38,6 @@ export function requirementSchema(meta) {
 export function offeringSchema(meta) {
   return z.object({
     supplier_name: text(2, 200),
-    contact_email: email,
     product_offered: text(2, 2000),
     category: oneOf(meta.categories, 'Choose a category'),
     available_quantity: positive,

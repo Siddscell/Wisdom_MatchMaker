@@ -21,8 +21,9 @@ Every time someone submits a form, the engine runs three stages in the backgroun
    (an "embedding"). Similar meanings give similar numbers, so a buyer asking for
    **"MS pipe"** is shown a supplier of **"mild steel tube"**, ranked above "steel sheet",
    even though the two descriptions share no words.
-3. **Score.** Meaning (40%), price against budget (20%), quantity (15%), delivery time (15%) and
-   distance (10%) combine into a score from 0 to 100. Matches of **60+** are stored; **70+**
+3. **Score.** Meaning, price against budget, quantity, delivery time and distance combine into
+   a score from 0 to 100. The weights start at 40/20/15/15/10 and are then **learned** from
+   every accept and reject. Matches of **60+** are stored; **70+**
    notifies both sides once. **85+** is shown as *strong*, 70–84 as *good*, 60–69 as *fair*.
 
 Numbers and units are deliberately handled by rules rather than the model: embeddings are
@@ -36,21 +37,24 @@ You need **Python 3.11+**, **Node 18+** and a free **Supabase** account
 ### 1. Create the database
 
 1. Create a project at [supabase.com](https://supabase.com) and note the database password.
-2. Open **SQL Editor** and run, in order, the contents of
-   `supabase/migrations/0001_init.sql` and then `supabase/migrations/0002_indexes_rls.sql`.
-   (With `psql`: `psql "<connection string>" -f supabase/migrations/0001_init.sql`, then `0002`.)
-3. Copy the connection string from **Project Settings → Database → Connection string**.
-   Use **Direct connection** or **Session pooler** (not the transaction pooler).
+2. Open **SQL Editor** and run, in order, the files in `supabase/migrations/`:
+   `0001_init.sql`, `0002_indexes_rls.sql`, `0003_auth_ml.sql`.
+   (With `psql`: `psql "<connection string>" -f supabase/migrations/0001_init.sql`, and so on.)
+3. Click **Connect** and copy the **Session pooler** connection string. (Direct connection
+   needs IPv6, which many home networks don't have; never use the transaction pooler.)
+4. Accounts use Supabase Auth (email + password). Under **Authentication → Sign In / Providers**,
+   email is on by default. With "Confirm email" on, new users must click a link before logging
+   in; Supabase's built-in mailer is rate-limited, so for local testing you may switch it off.
 
 ### 2. Configure
 
 Copy `.env.example` twice:
 
-- to `backend/.env`: set `DATABASE_URL` to the connection string (with your password).
-  Everything else has working defaults.
-- to `frontend/.env`: only the `VITE_*` lines are read. For live notifications, set
-  `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (Project Settings → API). Without them the
-  app polls every 15 seconds instead.
+- to `backend/.env`: set `DATABASE_URL` (with your password), `SUPABASE_URL` and
+  `SUPABASE_ANON_KEY` (Project Settings → API; the anon/publishable key). Everything else has
+  working defaults.
+- to `frontend/.env`: only the `VITE_*` lines are read. Set `VITE_SUPABASE_URL` and
+  `VITE_SUPABASE_ANON_KEY` to the same two values (needed for accounts and live notifications).
 
 ### 3. Start the backend
 
@@ -84,9 +88,10 @@ npm run dev                          # http://localhost:5173
 Open <http://localhost:5173/dashboard> and click **Load sample data** (30 requirements,
 46 offerings). Matching runs in the background, and the dashboard fills within a few seconds.
 
-To see one side's view, type a sample email into **Acting as** at the top, for example
-`buyer@northwind.example.com` (the "MS pipes" buyer), then open **Client**. There is no login:
-the app is in demo mode and anyone can act as any email.
+Then **Register** as a client or a supplier. **My dashboard** is where you post listings,
+edit, close or reopen them, and accept or reject their matches. Everyone, logged in or not,
+can browse the **Public dashboard**. It never shows contact emails, budgets or prices; the two
+sides of an accepted match see each other's email.
 Emails the platform would send appear under **Dev: email outbox** in the footer.
 
 ## Tests and checks

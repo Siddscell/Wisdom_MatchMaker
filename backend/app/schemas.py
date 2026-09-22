@@ -1,8 +1,9 @@
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
+from app.auth import User
 from app.constants import CATEGORIES, DELIVERY_SCOPES, UNIT_FAMILIES
 from app.models import Match
 
@@ -18,7 +19,6 @@ def _one_of(options) -> AfterValidator:
     return AfterValidator(check)
 
 
-Email = Annotated[EmailStr, AfterValidator(str.lower)]
 Name = Annotated[str, Field(min_length=2, max_length=200)]
 Description = Annotated[str, Field(min_length=2, max_length=2000)]
 Notes = Annotated[str | None, Field(max_length=2000), AfterValidator(lambda v: v or None)]
@@ -34,7 +34,6 @@ class _In(BaseModel):
 
 class RequirementIn(_In):
     client_name: Name
-    contact_email: Email
     product_requirement: Description
     category: Category
     quantity: Positive
@@ -47,7 +46,6 @@ class RequirementIn(_In):
 
 class OfferingIn(_In):
     supplier_name: Name
-    contact_email: Email
     product_offered: Description
     category: Category
     available_quantity: Positive
@@ -76,13 +74,14 @@ class MatchOut(_Out):
     client_name: str
     offering_product: str
     supplier_name: str
-    # Contact details stay hidden until the match is accepted.
+    # Contact details only for the two parties, and only once the match is accepted.
     client_email: str | None
     supplier_email: str | None
 
     @classmethod
-    def of(cls, m: Match) -> "MatchOut":
-        accepted = m.status == "accepted"
+    def of(cls, m: Match, viewer: User | None = None) -> "MatchOut":
+        r, o = m.requirement, m.offering
+        share = m.status == "accepted" and viewer is not None and is_party(m, viewer)
         return cls(
             id=m.id,
             requirement_id=m.requirement_id,
@@ -91,24 +90,29 @@ class MatchOut(_Out):
             status=m.status,
             created_at=m.created_at,
             updated_at=m.updated_at,
-            requirement_product=m.requirement.product_requirement,
-            client_name=m.requirement.client_name,
-            offering_product=m.offering.product_offered,
-            supplier_name=m.offering.supplier_name,
-            client_email=m.requirement.contact_email if accepted else None,
-            supplier_email=m.offering.contact_email if accepted else None,
+            requirement_product=r.product_requirement,
+            client_name=r.client_name,
+            offering_product=o.product_offered,
+            supplier_name=o.supplier_name,
+            client_email=r.contact_email if share else None,
+            supplier_email=o.contact_email if share else None,
         )
 
 
-class RequirementOut(_Out):
+def is_party(m: Match, user: User) -> bool:
+    # A listing belongs to the account whose verified email created it.
+    return user.email in (m.requirement.contact_email, m.offering.contact_email)
+
+
+class RequirementPublic(_Out):
+    """What anyone may see: no contact email, no budget."""
+
     id: str
     client_name: str
-    contact_email: str
     product_requirement: str
     category: str
     quantity: float
     unit: str
-    budget: float
     location: str
     latitude: float | None
     longitude: float | None
@@ -118,16 +122,22 @@ class RequirementOut(_Out):
     created_at: datetime
 
 
-class OfferingOut(_Out):
+class RequirementOut(RequirementPublic):
+    """The owner's full view."""
+
+    contact_email: str
+    budget: float
+
+
+class OfferingPublic(_Out):
+    """What anyone may see: no contact email, no prices."""
+
     id: str
     supplier_name: str
-    contact_email: str
     product_offered: str
     category: str
     available_quantity: float
     unit: str
-    unit_price: float
-    pricing_notes: str | None
     location: str
     latitude: float | None
     longitude: float | None
@@ -138,12 +148,24 @@ class OfferingOut(_Out):
     created_at: datetime
 
 
-class RequirementDetail(RequirementOut):
+class OfferingOut(OfferingPublic):
+    """The owner's full view."""
+
+    contact_email: str
+    unit_price: float
+    pricing_notes: str | None
+
+
+class RequirementDetail(RequirementPublic):
     matches: list[MatchOut]
 
 
-class OfferingDetail(OfferingOut):
+class OfferingDetail(OfferingPublic):
     matches: list[MatchOut]
+
+
+class ListingStatusIn(BaseModel):
+    status: Literal["open", "closed", "active", "inactive"]
 
 
 class MatchStatusIn(BaseModel):

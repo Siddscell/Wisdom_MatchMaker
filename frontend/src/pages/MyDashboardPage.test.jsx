@@ -5,6 +5,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../api/client.js';
 import { routes } from '../router.jsx';
 
+let session = null;
+vi.mock('../hooks/useSession.js', async (original) => ({
+  ...(await original()),
+  useSession: () => session,
+}));
+
 const META = {
   categories: ['Raw Materials & Metals', 'Packaging'],
   units: ['kg', 'tonne', 'piece'],
@@ -15,39 +21,32 @@ const META = {
 
 const CASES = {
   client: {
-    create: 'createRequirement',
-    submit: 'Submit requirement',
+    table: 'requirements',
+    submit: 'Post requirement',
+    product: 'Product requirement',
     text: {
-      'Company / client name': 'Acme Ltd',
-      'Contact email': 'buyer@acme.example.com',
       'Product requirement': 'MS pipes, 2 inch',
       Quantity: '100',
       'Budget (total)': '2500',
       'Delivery timeline (days)': '14',
       'Delivery location': 'Manchester',
     },
-    select: { Category: 'Raw Materials & Metals', Unit: 'kg' },
+    select: { Unit: 'kg' },
     expected: { client_name: 'Acme Ltd', quantity: 100, budget: 2500, needed_within_days: 14 },
   },
   supplier: {
-    create: 'createOffering',
-    submit: 'Submit offering',
+    table: 'offerings',
+    submit: 'Post offering',
+    product: 'Product offered',
     text: {
-      'Supplier name': 'SteelFlow',
-      'Contact email': 'sales@steelflow.example.com',
       'Product offered': 'Mild steel tubes, 50 mm',
       'Available quantity': '5',
       'Unit price': '1300',
       'Lead time (days)': '0',
       Location: 'Leeds',
     },
-    select: { Category: 'Raw Materials & Metals', Unit: 'tonne', 'Delivery scope': 'regional' },
-    expected: {
-      supplier_name: 'SteelFlow',
-      available_quantity: 5,
-      unit_price: 1300,
-      lead_time_days: 0,
-    },
+    select: { Unit: 'tonne', 'Delivery scope': 'regional' },
+    expected: { supplier_name: 'Acme Ltd', available_quantity: 5, unit_price: 1300 },
   },
 };
 
@@ -61,38 +60,45 @@ function renderAt(path) {
   );
 }
 
-describe.each(Object.entries(CASES))('%s form', (role, c) => {
+describe.each(Object.entries(CASES))('%s dashboard form', (role, c) => {
   beforeEach(() => {
-    localStorage.clear();
+    session = {
+      user: { email: 'me@acme.example.com', user_metadata: { role, company: 'Acme Ltd' } },
+    };
     Object.assign(api, {
       meta: vi.fn().mockResolvedValue(META),
-      requirements: vi.fn().mockResolvedValue([]),
-      offerings: vi.fn().mockResolvedValue([]),
       matches: vi.fn().mockResolvedValue([]),
       notifications: vi.fn().mockResolvedValue([]),
-      [c.create]: vi.fn(async (values) => ({ id: '1', status: 'open', ...values })),
+      suggestCategory: vi.fn().mockResolvedValue({ category: 'Raw Materials & Metals' }),
+    });
+    Object.assign(api[c.table], {
+      mine: vi.fn().mockResolvedValue([]),
+      create: vi.fn(async (values) => ({ id: '1', status: 'open', ...values })),
     });
   });
 
   it('shows inline errors and does not submit when empty', async () => {
-    renderAt(`/${role}`);
-    fireEvent.click(await screen.findByRole('button', { name: c.submit }));
-    expect(
-      await screen.findAllByText(/At least 2 characters|Enter a valid email/),
-    ).not.toHaveLength(0);
-    expect(api[c.create]).not.toHaveBeenCalled();
+    renderAt('/me');
+    fireEvent.change(await screen.findByLabelText(c.product), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: c.submit }));
+    expect(await screen.findAllByText(/At least 2 characters|Choose a/)).not.toHaveLength(0);
+    expect(api[c.table].create).not.toHaveBeenCalled();
   });
 
-  it('submits valid values and confirms that matching is running', async () => {
-    renderAt(`/${role}`);
+  it('suggests the category, submits, and confirms that matching is running', async () => {
+    renderAt('/me');
     await screen.findByRole('button', { name: c.submit });
     for (const [label, value] of Object.entries({ ...c.text, ...c.select })) {
       fireEvent.change(screen.getByLabelText(label), { target: { value } });
     }
-    fireEvent.click(screen.getByRole('button', { name: c.submit }));
+    fireEvent.blur(screen.getByLabelText(c.product));
+    await waitFor(() =>
+      expect(screen.getByLabelText('Category').value).toBe('Raw Materials & Metals'),
+    );
 
-    await waitFor(() => expect(api[c.create]).toHaveBeenCalledOnce());
-    expect(api[c.create].mock.calls[0][0]).toMatchObject(c.expected);
+    fireEvent.click(screen.getByRole('button', { name: c.submit }));
+    await waitFor(() => expect(api[c.table].create).toHaveBeenCalledOnce());
+    expect(api[c.table].create.mock.calls[0][0]).toMatchObject(c.expected);
     expect(await screen.findByText(/Matching is running now/)).toBeTruthy();
   });
 });

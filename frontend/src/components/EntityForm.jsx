@@ -5,7 +5,9 @@ import { zodResolver } from '../lib/schemas.js';
 
 /**
  * @typedef {{ name: string, label: string, type?: 'text'|'email'|'number'|'textarea'|'select',
- *   options?: string[], hint?: string, wide?: boolean, optional?: boolean }} FieldSpec
+ *   options?: string[], hint?: string, wide?: boolean, optional?: boolean,
+ *   suggest?: (value: string) => Promise<Record<string, string|null>> }} FieldSpec
+ *   suggest: on blur, fills still-empty fields from the returned values.
  */
 
 function Control({ field, id, register, invalid, describedBy }) {
@@ -38,11 +40,26 @@ function Control({ field, id, register, invalid, describedBy }) {
 export default function EntityForm({ fields, schema, defaultValues, submitLabel, onSubmit }) {
   const formId = useId();
   const {
-    register,
+    register: baseRegister,
     handleSubmit,
     setError,
+    getValues,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm({ resolver: zodResolver(schema), defaultValues });
+
+  const register = (name) => {
+    const spec = fields.find((f) => f.name === name);
+    if (!spec?.suggest) return baseRegister(name);
+    const onBlur = async (event) => {
+      if (event.target.value.trim().length < 2) return;
+      const suggested = await spec.suggest(event.target.value).catch(() => ({}));
+      for (const [key, value] of Object.entries(suggested)) {
+        if (value && !getValues(key)) setValue(key, value, { shouldValidate: true });
+      }
+    };
+    return baseRegister(name, { onBlur });
+  };
 
   const submit = handleSubmit(async (values) => {
     try {

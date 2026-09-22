@@ -137,3 +137,11 @@ class GeocodeCache(Base):
     latitude: Mapped[float | None]
     longitude: Mapped[float | None]
     created_at: Mapped[datetime] = _created()
+
+
+class ModelState(Base):
+    __tablename__ = "model_state"
+
+    key: Mapped[str] = mapped_column(primary_key=True)
+    value: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    updated_at: Mapped[datetime] = _created()

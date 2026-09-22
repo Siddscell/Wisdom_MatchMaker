@@ -3,7 +3,8 @@ import Layout from './components/Layout.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import HomePage from './pages/HomePage.jsx';
 import OutboxPage from './pages/OutboxPage.jsx';
-import PortalPage from './pages/PortalPage.jsx';
+import AuthPage from './pages/AuthPage.jsx';
+import MyDashboardPage from './pages/MyDashboardPage.jsx';
 
 function NotFound() {
   return (
@@ -22,8 +23,9 @@ export const routes = [
     element: <Layout />,
     children: [
       { index: true, element: <HomePage /> },
-      { path: 'client', element: <PortalPage role="client" /> },
-      { path: 'supplier', element: <PortalPage role="supplier" /> },
+      { path: 'login', element: <AuthPage mode="login" /> },
+      { path: 'register', element: <AuthPage mode="register" /> },
+      { path: 'me', element: <MyDashboardPage /> },
       { path: 'dashboard', element: <DashboardPage /> },
       { path: 'dev/outbox', element: <OutboxPage /> },
       { path: '*', element: <NotFound /> },

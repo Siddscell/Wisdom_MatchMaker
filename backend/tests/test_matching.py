@@ -58,8 +58,9 @@ def test_results_sorted_and_capped(db, client):
     assert scores == sorted(scores, reverse=True)
 
 
-def test_rerun_is_idempotent_keeps_status_and_notifies_once(db, client):
+def test_rerun_is_idempotent_keeps_status_and_notifies_once(db, client, login):
     r = add_requirement(db)
+    login(r.contact_email)
     add_offering(db, "A")
     add_offering(db, "B", unit_price=6)
 

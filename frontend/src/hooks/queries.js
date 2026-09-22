@@ -13,15 +13,13 @@ export const useMeta = () =>
 export const useSummary = () =>
   useQuery({ queryKey: ['summary'], queryFn: api.summary, refetchInterval: LIVE_REFRESH_MS });
 
-export const useRequirements = (params, options) =>
-  useQuery({
-    queryKey: ['requirements', params],
-    queryFn: () => api.requirements(params),
-    ...options,
-  });
+/** Public listings. @param {'requirements'|'offerings'} table */
+export const useListings = (table, params) =>
+  useQuery({ queryKey: [table, params], queryFn: () => api[table].list(params) });
 
-export const useOfferings = (params, options) =>
-  useQuery({ queryKey: ['offerings', params], queryFn: () => api.offerings(params), ...options });
+/** The logged-in owner's own listings (full detail). */
+export const useMyListings = (table) =>
+  useQuery({ queryKey: [table, 'mine'], queryFn: api[table].mine });
 
 export const useMatches = (params) =>
   useQuery({
@@ -31,9 +29,6 @@ export const useMatches = (params) =>
   });
 
 export const useOutbox = () => useQuery({ queryKey: ['outbox'], queryFn: api.outbox });
-
-export const useAllNotifications = () =>
-  useQuery({ queryKey: ['notifications', 'all'], queryFn: () => api.notifications() });
 
 export function useSetMatchStatus() {
   const queryClient = useQueryClient();
@@ -55,7 +50,7 @@ export function useMarkRead() {
 }
 
 /**
- * Notifications for one email. Supabase Realtime pushes inserts when configured;
+ * The logged-in user's notifications (`email` keys the cache and the Realtime filter). Supabase Realtime pushes inserts when configured;
  * otherwise (or if the subscription fails) the query polls every 15 seconds.
  */
 export function useMyNotifications(email) {
@@ -89,7 +84,7 @@ export function useMyNotifications(email) {
 
   return useQuery({
     queryKey: ['notifications', email],
-    queryFn: () => api.notifications({ email }),
+    queryFn: () => api.notifications(),
     enabled: Boolean(email),
     refetchInterval: live ? false : POLL_FALLBACK_MS,
     refetchIntervalInBackground: true, // keep the bell current while the tab is hidden

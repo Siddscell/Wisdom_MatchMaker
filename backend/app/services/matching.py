@@ -17,6 +17,7 @@ from app.models import Match, Offering, Requirement
 from app.services import scoring, units
 from app.services.embedding import embed, record_text
 from app.services.geo import geocode, haversine_sql
+from app.services.ml import current_weights
 from app.services.notifications import notify
 
 log = logging.getLogger(__name__)
@@ -54,10 +55,11 @@ def _run(model: type[Requirement] | type[Offering], item_id: str) -> None:
         prepare(db, item)
         db.commit()  # keep the embedding/coordinates even if matching fails below
 
+        weights = current_weights(db)  # learned from accept/reject; the WEIGHT_* prior at first
         scored = []
         for other, cos, distance_km in _candidates(db, item):
             r, o = (item, other) if model is Requirement else (other, item)
-            score, parts = score_pair(r, o, cos, distance_km)
+            score, parts = score_pair(r, o, cos, distance_km, weights)
             if score >= settings.MATCH_MIN_SCORE:
                 scored.append((score, parts, r, o))
         scored.sort(key=lambda row: row[0], reverse=True)
@@ -84,7 +86,7 @@ def prepare(db: Session, item: Requirement | Offering) -> None:
 
 
 def score_pair(
-    r: Requirement, o: Offering, cos: float, distance_km: float | None
+    r: Requirement, o: Offering, cos: float, distance_km: float | None, weights: dict
 ) -> tuple[float, dict]:
     s = get_settings()
     required_in_offer_units = units.convert(r.quantity, r.unit, o.unit)
@@ -97,8 +99,8 @@ def score_pair(
         "delivery": scoring.delivery(o.lead_time_days, r.needed_within_days),
         "location": scoring.location(distance_km, r.location, o.location),
     }
-    score = scoring.final(parts, s.weights)
-    # Raw inputs are kept too, for debugging and for training a learned ranker later.
+    score = scoring.final(parts, weights)
+    # Raw inputs are kept too: they are the ranker's training features.
     breakdown = {**{k: round(v, 4) for k, v in parts.items()}, "cosine": round(cos, 4)}
     breakdown["distance_km"] = None if distance_km is None else round(distance_km, 1)
     return score, breakdown

@@ -3,18 +3,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../api/client.js';
 import DataTable from '../components/DataTable.jsx';
-import MatchActions from '../components/MatchActions.jsx';
 import { EmptyState, QueryState, ScoreBar, StatusBadge } from '../components/ui.jsx';
-import {
-  useAllNotifications,
-  useMatches,
-  useOfferings,
-  useRequirements,
-  useSummary,
-} from '../hooks/queries.js';
+import { useListings, useMatches, useSummary } from '../hooks/queries.js';
 import { formatDate, formatNumber } from '../lib/format.js';
 
-const TABS = ['Requirements', 'Offerings', 'Matches', 'Notifications'];
+const TABS = ['Requirements', 'Offerings', 'Matches'];
 const byDate = (row) => new Date(row.created_at).getTime();
 
 function Select({ label, value, onChange, options }) {
@@ -52,7 +45,7 @@ function NoData() {
 
 function RequirementsTab({ categories }) {
   const [filters, setFilters] = useState({ category: '', status: '' });
-  const query = useRequirements(filters);
+  const query = useListings('requirements', filters);
   const set = (key) => (value) => setFilters((f) => ({ ...f, [key]: value }));
   return (
     <>
@@ -89,7 +82,6 @@ function RequirementsTab({ categories }) {
                 header: 'Quantity',
                 render: (r) => `${formatNumber(r.quantity)} ${r.unit}`,
               },
-              { key: 'budget', header: 'Budget', render: (r) => formatNumber(r.budget) },
               { key: 'location', header: 'Location' },
               {
                 key: 'needed_within_days',
@@ -113,7 +105,7 @@ function RequirementsTab({ categories }) {
 
 function OfferingsTab({ categories }) {
   const [filters, setFilters] = useState({ category: '', status: '' });
-  const query = useOfferings(filters);
+  const query = useListings('offerings', filters);
   const set = (key) => (value) => setFilters((f) => ({ ...f, [key]: value }));
   return (
     <>
@@ -149,11 +141,6 @@ function OfferingsTab({ categories }) {
                 key: 'available_quantity',
                 header: 'Available',
                 render: (o) => `${formatNumber(o.available_quantity)} ${o.unit}`,
-              },
-              {
-                key: 'unit_price',
-                header: 'Unit price',
-                render: (o) => formatNumber(o.unit_price),
               },
               { key: 'location', header: 'Location' },
               {
@@ -231,70 +218,6 @@ function MatchesTab() {
                 header: 'Created',
                 value: byDate,
                 render: (m) => formatDate(m.created_at),
-              },
-              {
-                key: 'actions',
-                header: 'Actions',
-                sortable: false,
-                render: (m) => <MatchActions match={m} />,
-              },
-            ]}
-          />
-        )}
-      </QueryState>
-    </>
-  );
-}
-
-function NotificationsTab() {
-  const [role, setRole] = useState('');
-  const query = useAllNotifications();
-  return (
-    <>
-      <Filters>
-        <Select
-          label="Recipient"
-          value={role}
-          onChange={setRole}
-          options={['client', 'supplier']}
-        />
-      </Filters>
-      <QueryState
-        query={query}
-        empty={
-          <EmptyState title="No notifications yet">
-            They are created when a match scores 70 or more.
-          </EmptyState>
-        }
-      >
-        {(rows) => (
-          <DataTable
-            caption="Notifications"
-            rows={role ? rows.filter((n) => n.recipient_role === role) : rows}
-            initialSort={{ key: 'created_at', dir: 'desc' }}
-            columns={[
-              {
-                key: 'recipient_email',
-                header: 'Recipient',
-                render: (n) => <span className="font-medium">{n.recipient_email}</span>,
-              },
-              {
-                key: 'recipient_role',
-                header: 'Role',
-                render: (n) => <span className="capitalize">{n.recipient_role}</span>,
-              },
-              { key: 'message', header: 'Message' },
-              {
-                key: 'is_read',
-                header: 'Read',
-                value: (n) => Number(n.is_read),
-                render: (n) => (n.is_read ? 'Read' : 'Unread'),
-              },
-              {
-                key: 'created_at',
-                header: 'Created',
-                value: byDate,
-                render: (n) => formatDate(n.created_at),
               },
             ]}
           />
@@ -420,7 +343,6 @@ export default function DashboardPage() {
           {tab === 'Requirements' && <RequirementsTab categories={categories} />}
           {tab === 'Offerings' && <OfferingsTab categories={categories} />}
           {tab === 'Matches' && <MatchesTab />}
-          {tab === 'Notifications' && <NotificationsTab />}
         </div>
       </section>
     </div>

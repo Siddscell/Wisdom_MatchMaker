@@ -77,16 +77,48 @@ calibration whenever the model changes. `score_breakdown.cosine` has what you ne
   needs a migration changing `vector(384)`.
 - **Currency.** Budgets and prices are assumed to be in the same currency.
 
-## Future learning step (not built)
+## Models in use (all free, all local)
 
-Accept/reject decisions are labelled training data. The planned upgrade:
+| Job | Model | Why this one |
+|---|---|---|
+| Understand descriptions | `BAAI/bge-small-en-v1.5` embeddings (fastembed, ONNX, 384 dims) | Best separation measured on our data; ~70 MB |
+| Rank / weight the sub-scores | Logistic regression on accept/reject (numpy, `services/ml.py`) | Learns from tens of labels; interpretable weights |
+| Suggest a category | 1-nearest-neighbour over existing listings (pgvector) | No extra model; improves as listings grow |
 
-1. **Learned ranker.** Replace the fixed weights with a LightGBM LambdaMART model trained on
-   `score_breakdown` features (sub-scores, raw cosine, distance) with accepted = relevant and
-   rejected = not relevant, grouped per requirement. Keep the hard filters. The ranker only
-   reorders candidates. Evaluate with NDCG@10 on a time-based split before switching.
-2. **Fine-tuned embeddings.** Fine-tune the embedding model on accepted (requirement, offering)
-   pairs with a contrastive loss (e.g. MultipleNegativesRankingLoss), so trade shorthand like
-   "MS" is learned from real usage. Re-embed all records and recalibrate afterwards.
+### Learned ranker (built)
 
-`score_breakdown` is stored complete on every match precisely so both steps are possible later.
+Every accept/reject retrains a logistic regression on the stored sub-scores of all decided
+matches. Its positive coefficients, normalised to sum to 1, become the scoring weights, blended
+with the `WEIGHT_*` prior by `n / (n + RANKER_PRIOR_STRENGTH)` (default 50). So there is no
+cold-start cliff: with no labels the weights are exactly the prior, and at 50 labels learned
+and prior count equally. The score stays on the same 0-100 scale, so the 60/70 thresholds keep
+their meaning. Both outcomes must appear before anything is learned. The weights are stored in
+`model_state`, and each match run reads them.
+
+### Measured and rejected: cross-encoder rerankers
+
+Scored on the seed data (same-category candidate sets; AUC = true pair ranked above wrong pair):
+
+| Model | top-1 correct | AUC | notes |
+|---|---|---|---|
+| bge-small cosine (in use) | 29/30 | 0.975 | |
+| ms-marco-MiniLM-L-6 / L-12 | 29 / 28 | 0.979 / 0.978 | web-search trained; "MS pipes" ↔ "mild steel tubes" scored as unrelated |
+| jina-reranker-v1 tiny / turbo | 29 / 29 | 0.948 / 0.982 | |
+| bge-reranker-base (1 GB) | 30/30 | 0.945 | very confident, but scores ~10% of true pairs ≈ 0 (misses synonyms) |
+
+None earns its size or latency, so they're not used. Re-run this comparison if the data changes.
+
+### Measured and rejected: zero-shot category classification
+
+Embedding a description against the category names: 47/76 correct. Nearest existing listing:
+76/76 on the seed data, so that's what the suggestion uses.
+
+## Next steps (not built)
+
+1. **LightGBM LambdaMART** in place of logistic regression, once there are thousands of
+   decisions and feature interactions matter (grouped per requirement; evaluate NDCG@10 on a
+   time split).
+2. **Fine-tuned embeddings** on accepted pairs (MultipleNegativesRankingLoss) so trade shorthand
+   like "MS" is learned from real usage; re-embed and recalibrate afterwards.
+
+`score_breakdown` keeps every sub-score, the raw cosine and the distance, so both are possible.
