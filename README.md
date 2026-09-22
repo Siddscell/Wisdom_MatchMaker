@@ -19,6 +19,7 @@ calls.
 |---|---|---|
 | **Client** | Fabricators, contractors, retailers, restaurants, schools | Ranked, qualified suppliers without cold-calling; budget stays private |
 | **Supplier** | Manufacturers, traders, stockists, distributors | Buyers that already fit their stock, price and delivery reach; price stays private |
+| **Operator** | The platform owner | A public dashboard of listings, matches, scores and statuses |
 
 **How it is used**
 
@@ -31,9 +32,15 @@ calls.
 5. Accept or reject. Contact details are shared only when both sides accept, and every decision
    teaches the ranker.
 
-**Why Wisdom:** it understands meaning (and photos), drops pairs that cannot trade before anyone
-picks up the phone, learns from decisions, keeps prices private, and runs its AI locally at zero
-per-match cost. Built for India: ₹ with Indian digit grouping, Indian cities, kg/quintal/tonne.
+**Why Wisdom wins**
+
+- **Understands meaning.** "MS pipe" finds "mild steel tube"; a photo of a part finds the
+  supplier whose photo matches.
+- **No wasted leads.** Hard rules drop pairs that cannot trade before anyone picks up the phone.
+- **Learns.** Scoring weights adapt to what users actually accept.
+- **Private by design.** Budgets, prices and contacts are never public.
+- **Zero AI running cost.** Models run locally; no paid API, no per-match fee.
+- **Built for India.** ₹ with Indian digit grouping, Indian cities, kg/quintal/tonne conversion.
 
 ## Architecture
 
@@ -45,6 +52,18 @@ React SPA ──HTTP/JSON──▶ FastAPI ──SQLAlchemy──▶ Supabase Po
    │                        └─ Gmail SMTP (every email also kept in an outbox)
    └──── Supabase Auth (email + password, role in user metadata) and Storage (photos)
 ```
+
+| Layer | Responsibility |
+|---|---|
+| **Frontend** (React SPA) | Client and supplier portals, public listings dashboard with search, notification bell |
+| **API** (FastAPI) | Routers → services → models: validation, ownership checks, one error shape |
+| **Matching service** | Embeds and geocodes each listing once, filters in SQL, retrieves by similarity, scores, stores, notifies |
+| **Database** (Supabase Postgres + pgvector) | Listings, matches, notifications, email outbox, learned ranker weights, vector indexes |
+| **Auth & storage** (Supabase) | Email/password accounts with the role in user metadata; listing photos bucket |
+| **Email** (Gmail SMTP) | Match emails; every email is also kept in an outbox so nothing is lost |
+
+**Flow:** form submit → API saves the listing → response returns → background task: embed →
+hard filters (SQL) → nearest 50 by meaning (pgvector) → score → upsert matches → notify both sides.
 
 - **Routers → services → models.** Routers stay thin; `services/scoring.py` is pure functions.
 - Posting a form never waits for the AI: matching runs after the response is sent.
