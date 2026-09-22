@@ -1,4 +1,12 @@
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import {
+  Link,
+  Navigate,
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from 'react-router-dom';
 import { useMeta } from '../hooks/queries.js';
 import { accountOf, useSession } from '../hooks/useSession.js';
 import { supabase } from '../lib/supabase.js';
@@ -13,6 +21,13 @@ export default function Layout() {
   const account = accountOf(session);
   const meta = useMeta();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const q = useSearchParams()[0].get('q') ?? '';
+  const search = (event) => {
+    event.preventDefault();
+    const text = new FormData(event.currentTarget).get('q').trim();
+    navigate(text ? `/dashboard?q=${encodeURIComponent(text)}` : '/dashboard');
+  };
 
   const logout = async () => {
     await supabase.auth.signOut();
@@ -37,14 +52,30 @@ export default function Layout() {
             aria-label="Main"
             className="order-3 col-span-2 flex justify-center gap-1 text-sm sm:order-none sm:col-span-1"
           >
-            <NavLink to="/dashboard" className={navClass}>
-              Listings
+            <NavLink to="/" end className={navClass}>
+              Home
             </NavLink>
+            {account?.role !== 'supplier' && (
+              <Link to="/register?role=supplier" className={navClass({ isActive: false })}>
+                Become a Supplier
+              </Link>
+            )}
             {account && (
               <NavLink to="/me" className={navClass}>
                 My dashboard
               </NavLink>
             )}
+            <form role="search" onSubmit={search} className="ml-2">
+              <input
+                key={q}
+                type="search"
+                name="q"
+                defaultValue={q}
+                aria-label="Search listings"
+                placeholder="Search items, suppliers, cities…"
+                className="input w-44 py-1.5 sm:w-56"
+              />
+            </form>
           </nav>
           <div className="flex items-center justify-end gap-2 text-sm">
             {account ? (
@@ -72,7 +103,12 @@ export default function Layout() {
       </header>
 
       <main id="main" className="mx-auto w-full max-w-page flex-1 px-4 py-8 sm:px-6 sm:py-12">
-        <Outlet context={{ session, account, meta }} />
+        {/* Invited / dashboard-created users have no role yet: finish the account first. */}
+        {account && !account.role && pathname !== '/me' ? (
+          <Navigate to="/me" replace />
+        ) : (
+          <Outlet context={{ session, account, meta }} />
+        )}
       </main>
 
       <footer className="mt-16 border-t border-line">

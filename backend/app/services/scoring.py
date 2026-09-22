@@ -9,21 +9,23 @@ def semantic(cos: float, floor: float, span: float) -> float:
     return clamp((cos - floor) / span)
 
 
-def price(total: float, budget: float) -> float:
+def price(total: float, budget: float, max_factor: float) -> float:
+    """0.85..1 within budget; over it, falls from 0.85 to 0 at max_factor x budget."""
     ratio = total / budget
     if ratio <= 1:
         return 0.85 + 0.15 * (1 - ratio)
-    return max(0.0, 1 - (ratio - 1) / 0.5)
+    return 0.85 * clamp(1 - (ratio - 1) / (max_factor - 1))
 
 
 def quantity(available: float, required: float) -> float:
     return min(1.0, available / required)
 
 
-def delivery(lead: float, needed: float) -> float:
+def delivery(lead: float, needed: float, max_factor: float) -> float:
+    """0.8..1 on time; late, falls from 0.8 to 0 at max_factor x needed."""
     if lead <= needed:
         return 0.8 + 0.2 * (1 - lead / needed)
-    return max(0.0, 1 - (lead - needed) / needed)
+    return 0.8 * clamp(1 - (lead - needed) / ((max_factor - 1) * needed))
 
 
 def location(distance_km: float | None, place_a: str, place_b: str) -> float:

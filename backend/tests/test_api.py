@@ -32,7 +32,7 @@ def test_meta(client):
     assert "Packaging" in meta["categories"]
     assert meta["units"][:3] == ["kg", "quintal", "tonne"]
     assert meta["delivery_scopes"]["international"] is None
-    assert meta["score_thresholds"] == {"match_min": 60, "notify_min": 70}
+    assert meta["score_thresholds"] == {"match_min": 55, "notify_min": 70}
 
 
 def test_writes_need_login(client):

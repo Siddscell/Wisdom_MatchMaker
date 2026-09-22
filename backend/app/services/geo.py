@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 
 EARTH_RADIUS_KM = 6371.0
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
-_INDIA = "68,37,98,6"  # lon/lat box; preferred, not a restriction (see docs/DECISIONS.md)
+_INDIA = "68,37,98,6"  # lon/lat box; preferred, not a restriction
 
 _lock = threading.Lock()
 _last_call = 0.0
@@ -51,7 +51,7 @@ def geocode(db: Session, place: str) -> tuple[float, float] | None:
 
 def _nominatim(place: str) -> tuple[float | None, float | None]:
     global _last_call
-    # ponytail: process-wide lock to honour Nominatim's 1 request/second policy;
+    # Note: process-wide lock to honour Nominatim's 1 request/second policy;
     # switch to a paid/self-hosted geocoder if volume grows.
     with _lock:
         time.sleep(max(0.0, 1.0 - (time.monotonic() - _last_call)))

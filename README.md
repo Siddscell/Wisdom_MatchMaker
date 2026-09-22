@@ -1,97 +1,129 @@
-# Wisdom
+# ✳ Wisdom
 
-A web platform where **clients** post product requirements and **suppliers** post offerings.
-An AI matching engine finds and ranks the pairs that fit, stores them, notifies both sides
-(in-app and by email), and a dashboard shows requirements, offerings, matches, scores and status.
+**The right supplier. The right buyer. Found for you.**
 
-Wisdom is built for Indian businesses: prices in ₹, Indian cities, and photos of the item
-needed or offered. The AI runs **locally and for free** on your own machine, with no paid API:
-a text model (`BAAI/bge-small-en-v1.5`) and an image model (CLIP ViT-B/32).
+Wisdom is an AI matchmaking platform for Indian B2B trade. **Clients** post what they need,
+**suppliers** post what they sell, and Wisdom finds, ranks and introduces the pairs that can
+really do business: on meaning, price, quantity, delivery time and distance. Both sides are
+notified in-app and by email, and a dashboard shows every listing, match, score and status.
 
-> Screenshots: _add after first deployment_ (home, client portal, dashboard).
+## Why it exists
 
-## How the matching works
+Small and mid-sized businesses still source through phone calls, WhatsApp groups and
+directories. Keyword search fails them because trade speaks in synonyms: a buyer asks for
+**"MS pipe"**, the best supplier lists **"mild steel tube"**, and they never meet. Even when
+they do, most leads die on price, stock, lead time or distance, found out only after days of
+calls.
 
-Every time someone submits a form, the engine runs three stages in the background:
+| | Who | What they get |
+|---|---|---|
+| **Client** | Fabricators, contractors, retailers, restaurants, schools | Ranked, qualified suppliers without cold-calling; budget stays private |
+| **Supplier** | Manufacturers, traders, stockists, distributors | Buyers that already fit their stock, price and delivery reach; price stays private |
 
-1. **Filter.** Only pairs that could really trade survive: same category, compatible units
-   (kg and tonnes convert; boxes and pieces never mix), at least 25% of the quantity, a price
-   no more than 50% over budget, a lead time no more than twice the deadline, and a buyer
-   inside the supplier's delivery range (local 100 km, regional 500 km, national 5000 km).
-2. **Understand meaning.** A language model turns each description into a list of numbers
-   (an "embedding"). Similar meanings give similar numbers, so a buyer asking for
-   **"MS pipe"** is shown a supplier of **"mild steel tube"**, ranked above "steel sheet",
-   even though the two descriptions share no words.
-3. **Score.** Meaning, price against budget, quantity, delivery time and distance combine into
-   a score from 0 to 100. The weights start at 40/20/15/15/10 and are then **learned** from
-   every accept and reject. Matches of **60+** are stored; **70+**
-   notifies both sides once. **85+** is shown as *strong*, 70–84 as *good*, 60–69 as *fair*.
+**How it is used**
 
-Numbers and units are deliberately handled by rules rather than the model: embeddings are
-good at meaning and bad at arithmetic. Details: [docs/AI_MATCHING.md](docs/AI_MATCHING.md).
+1. Sign up with email and password as a client or a supplier.
+2. Post a listing in under a minute: product, quantity and unit, budget or unit price, city,
+   timeline and an optional photo. Category is suggested, the last city and unit are
+   remembered, and live helpers show ₹ per unit and the delivery date.
+3. Matching runs in the background; results appear within seconds.
+4. A match scoring 70+ notifies both sides in-app and by email.
+5. Accept or reject. Contact details are shared only when both sides accept, and every decision
+   teaches the ranker.
 
-## Run it locally (no Docker)
+**Why Wisdom:** it understands meaning (and photos), drops pairs that cannot trade before anyone
+picks up the phone, learns from decisions, keeps prices private, and runs its AI locally at zero
+per-match cost. Built for India: ₹ with Indian digit grouping, Indian cities, kg/quintal/tonne.
 
-You need **Python 3.11+**, **Node 18+** and a free **Supabase** account
-(or any PostgreSQL with the `pgvector` extension).
+## Architecture
 
-### 1. Create the database
+```
+React SPA ──HTTP/JSON──▶ FastAPI ──SQLAlchemy──▶ Supabase Postgres + pgvector
+   │                        │
+   │                        ├─ background task: embed → filter → retrieve → score → store → notify
+   │                        ├─ local AI models (text + image embeddings)
+   │                        └─ Gmail SMTP (every email also kept in an outbox)
+   └──── Supabase Auth (email + password, role in user metadata) and Storage (photos)
+```
 
-1. Create a project at [supabase.com](https://supabase.com) and note the database password.
-2. Open **SQL Editor** and run, in order, the files in `supabase/migrations/`:
-   `0001_init.sql`, `0002_indexes_rls.sql`, `0003_auth_ml.sql`, `0004_images.sql`
-   (the last one also creates the `listing-images` storage bucket for photos).
-   (With `psql`: `psql "<connection string>" -f supabase/migrations/0001_init.sql`, and so on.)
-3. Click **Connect** and copy the **Session pooler** connection string. (Direct connection
-   needs IPv6, which many home networks don't have; never use the transaction pooler.)
-4. Accounts use Supabase Auth (email + password). Under **Authentication → Sign In / Providers**,
-   email is on by default. With "Confirm email" on, new users must click a link before logging
-   in; Supabase's built-in mailer is rate-limited, so for local testing you may switch it off.
+- **Routers → services → models.** Routers stay thin; `services/scoring.py` is pure functions.
+- Posting a form never waits for the AI: matching runs after the response is sent.
+- Each listing is embedded and geocoded once; re-running matching is idempotent and never
+  overwrites a match's accepted/rejected status.
 
-### 2. Email with your Gmail (optional but recommended)
+## Technology stack
 
-Sign-up confirmations are sent by Supabase, match emails by the backend. Both can use one Gmail
-account:
+| Area | Technology |
+|---|---|
+| Frontend | React 18, Vite, plain JavaScript, Tailwind CSS, TanStack Query, react-hook-form + zod, React Router |
+| Backend | Python 3.11+, FastAPI, SQLAlchemy 2, Pydantic settings, Alembic |
+| Database | PostgreSQL on Supabase with pgvector |
+| AI (local, free) | `BAAI/bge-small-en-v1.5` for text, CLIP ViT-B/32 for photos (fastembed) |
+| Auth & files | Supabase Auth, Supabase Storage |
+| Geo | OpenStreetMap Nominatim with a database cache; haversine distance in SQL |
+| Quality | ruff, pytest, ESLint, Prettier, Vitest, GitHub Actions CI |
 
-1. Turn on 2-Step Verification for the Google account, then create an **App Password** at
-   <https://myaccount.google.com/apppasswords> (16 characters; remove the spaces).
-2. Supabase → **Authentication → Emails → SMTP Settings**: enable custom SMTP. Sender email: your
-   Gmail address; sender name: `Wisdom`; host `smtp.gmail.com`; port `465`; username: your Gmail
-   address; password: the App Password.
-3. `backend/.env`: `EMAIL_BACKEND=smtp`, `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`,
-   `SMTP_USER=` and `SMTP_FROM=` your Gmail address, `SMTP_PASSWORD=` the App Password.
-   Emails are always kept in the outbox too, so none are lost if sending fails.
+## AI matching approach
 
-### 3. Configure
+A hybrid engine: **models for meaning, rules for numbers.** Embeddings are good at "is this the
+same product?" and bad at arithmetic, so each does what it is good at.
 
-Copy `.env.example` twice:
+1. **Hard filters (SQL).** Only pairs that could really trade survive: comparable units (kg and
+   tonnes convert; boxes and pieces never mix), at least 10% of the quantity, price at most 2×
+   the budget, lead time at most 3× the deadline, and the buyer inside the supplier's delivery
+   range (local 100 km, regional 500 km, national 5000 km).
+2. **Meaning (pgvector).** Each description becomes a 384-dimension embedding; the 50 nearest
+   survivors by cosine similarity are scored. With photos, CLIP compares photo↔photo or
+   photo↔text; when the text is unsure, the photo decides.
+3. **Score (0–100).**
 
-- to `backend/.env`: set `DATABASE_URL` (with your password), `SUPABASE_URL` and
-  `SUPABASE_ANON_KEY` (Project Settings → API; the anon/publishable key). Everything else has
-  working defaults.
-- to `frontend/.env`: only the `VITE_*` lines are read. Set `VITE_SUPABASE_URL` and
-  `VITE_SUPABASE_ANON_KEY` to the same two values (needed for accounts and live notifications).
+   | Signal | Weight | Measure |
+   |---|---|---|
+   | Meaning | 40% | calibrated cosine similarity (text and photos) |
+   | Price | 20% | full marks within budget, falls to 0 at 2× budget |
+   | Quantity | 15% | share of the required quantity in stock |
+   | Delivery | 15% | full marks on time, falls to 0 at 3× the deadline |
+   | Distance | 10% | full within 50 km, 0 at 2000 km |
 
-### 4. Start the backend
+   **85+** strong, **70–84** good, **55–69** fair. Matches of 55+ are stored, 70+ notify both
+   sides once. Unrelated products are never stored, however cheap or close.
+4. **Learning.** Every accept/reject refits a logistic-regression ranker on the stored
+   sub-scores; its weights blend in with the defaults above as decisions accumulate.
+
+Every threshold and weight is an environment variable (see `.env.example`).
+
+## Setup
+
+You need **Python 3.11+**, **Node 18+** and a free **Supabase** project.
+
+**1. Supabase**
+
+- Create a project; click **Connect** and copy the **Session pooler** connection string.
+- **Authentication → Sign In / Providers → Email:** switch **Confirm email** off, so users log in
+  straight away with email and password.
+- Optional, for email: create a Gmail **App Password** (<https://myaccount.google.com/apppasswords>)
+  and enter it under **Authentication → Emails → SMTP Settings** (`smtp.gmail.com`, port 465).
+
+**2. Configure.** Copy `.env.example` to `backend/.env` and set `DATABASE_URL`, `SUPABASE_URL`
+and `SUPABASE_ANON_KEY` (Project Settings → API, the publishable key); for email also set
+`EMAIL_BACKEND=smtp` and the `SMTP_*` values. Copy the `VITE_*` lines to `frontend/.env` with the
+same URL and key.
+
+**3. Backend**
 
 ```bash
 cd backend
 python -m venv .venv
 source .venv/bin/activate            # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
+alembic upgrade head                 # creates the schema and the photo bucket
 python -m app.scripts.download_model # one-time download of the models (~0.7 GB)
 uvicorn app.main:app --reload --port 8000
 ```
 
-Check <http://localhost:8000/health>: it should report `"db": "ok"`. `model_loaded` becomes
-`true` a few seconds after start.
+<http://localhost:8000/health> should report `"db": "ok"`.
 
-> Instead of the SQL editor you can create the schema from here with `alembic upgrade head`.
-> If you already ran the SQL files by hand, run `alembic stamp head` once instead.
-
-### 5. Start the frontend
-
-In a second terminal:
+**4. Frontend**
 
 ```bash
 cd frontend
@@ -99,41 +131,25 @@ npm install
 npm run dev                          # http://localhost:5173
 ```
 
-### 6. Try it
+**5. Try it.** Open <http://localhost:5173/dashboard> and click **Load sample data** (30
+requirements, 49 offerings across India). Then register as a client and post
+*"MS pipes, 2 inch diameter", 2000 kg, budget ₹1,50,000, Pune, 21 days*: mild-steel tube
+suppliers appear, ranked, within seconds. Search listings from the navigation bar.
 
-Open <http://localhost:5173/dashboard> and click **Load sample data** (30 requirements,
-46 offerings). Matching runs in the background, and the dashboard fills within a few seconds.
-
-Then **Register** as a client or a supplier. **My dashboard** is where you post listings,
-edit, close or reopen them, and accept or reject their matches. Everyone, logged in or not,
-can browse the **Public dashboard**. It never shows contact emails, budgets or prices; the two
-sides of an accepted match see each other's email.
-Emails the platform would send appear under **Dev: email outbox** in the footer.
-
-## Tests and checks
+## Tests
 
 ```bash
-cd backend
-ruff check . && ruff format --check .
-pytest                       # database tests are skipped without TEST_DATABASE_URL
-TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/matchmaking_test pytest
-pytest -m slow               # semantic sanity check with the real model
-
-cd frontend
-npm run lint && npm test && npm run build
+cd backend && ruff check . && ruff format --check . && pytest
+cd frontend && npm run lint && npm test && npm run build
 ```
 
-`TEST_DATABASE_URL` must point at an **empty, throwaway** Postgres database with pgvector whose
-name contains `test`: the tests drop and recreate its schema. CI does all of this on every push.
+Database tests run when `TEST_DATABASE_URL` points at an empty, throwaway Postgres database
+with pgvector whose name contains `test`. CI runs everything on every push.
 
 ## Project layout
 
 ```
-backend/     FastAPI app: api/ (thin routers) -> services/ (matching, scoring, ...) -> models
+backend/     FastAPI app: api/ (routers) -> services/ (matching, scoring, ml, ...) -> models
 frontend/    React + Vite + Tailwind (plain JavaScript)
 supabase/    SQL migrations: the database can be rebuilt from these alone
-docs/        ARCHITECTURE, AI_MATCHING, OWNERSHIP_TRANSFER, DECISIONS
 ```
-
-All settings are environment variables (see `.env.example`); nothing is hard-coded to a
-machine, so containerising later needs no code changes.

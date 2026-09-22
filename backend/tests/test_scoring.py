@@ -17,13 +17,14 @@ def test_semantic(cos, expected):
         (0, 100, 1.0),
         (50, 100, 0.925),
         (100, 100, 0.85),  # ratio = 1 boundary
-        (125, 100, 0.5),
-        (150, 100, 0.0),
+        (101, 100, 0.8415),  # just over budget never beats exactly on budget
+        (150, 100, 0.425),
+        (200, 100, 0.0),  # max_factor
         (300, 100, 0.0),
     ],
 )
 def test_price(total, budget, expected):
-    assert scoring.price(total, budget) == pytest.approx(expected)
+    assert scoring.price(total, budget, max_factor=2.0) == pytest.approx(expected)
 
 
 @pytest.mark.parametrize(
@@ -36,10 +37,10 @@ def test_quantity(available, required, expected):
 
 @pytest.mark.parametrize(
     ("lead", "needed", "expected"),
-    [(0, 10, 1.0), (5, 10, 0.9), (10, 10, 0.8), (15, 10, 0.5), (20, 10, 0.0), (40, 10, 0.0)],
+    [(0, 10, 1.0), (5, 10, 0.9), (10, 10, 0.8), (15, 10, 0.6), (30, 10, 0.0), (40, 10, 0.0)],
 )
 def test_delivery(lead, needed, expected):
-    assert scoring.delivery(lead, needed) == pytest.approx(expected)
+    assert scoring.delivery(lead, needed, max_factor=3.0) == pytest.approx(expected)
 
 
 @pytest.mark.parametrize(

@@ -19,17 +19,17 @@ def test_hard_filters_exclude_what_they_should(db):
     add_offering(db, "Good")
     add_offering(db, "Tonnes", available_quantity=0.5, unit="tonne", unit_price=5000)
     add_offering(db, "FarButGlobal", delivery_scope="international", **PUNE)
-    add_offering(db, "OtherCategory", category="Packaging")
+    add_offering(db, "OtherCategory", category="Packaging")  # STRICT_CATEGORY off by default
     add_offering(db, "Litres", unit="litre")
-    add_offering(db, "TooLittle", available_quantity=20)  # < 25% of 100
-    add_offering(db, "TooSlow", lead_time_days=21)  # > 2 x 10 days
-    add_offering(db, "TooPricey", unit_price=16)  # 1600 > 1.5 x 1000
+    add_offering(db, "TooLittle", available_quantity=5)  # < 10% of 100
+    add_offering(db, "TooSlow", lead_time_days=31)  # > 3 x 10 days
+    add_offering(db, "TooPricey", unit_price=21)  # 2100 > 2 x 1000
     add_offering(db, "TooFar", **PUNE)  # local scope, ~120 km away
     add_offering(db, "Inactive", status="inactive")
 
     match_requirement(r.id)
 
-    assert matched_suppliers(db, r.id) == {"Good", "Tonnes", "FarButGlobal"}
+    assert matched_suppliers(db, r.id) == {"Good", "Tonnes", "FarButGlobal", "OtherCategory"}
 
 
 def test_box_and_piece_never_match(db):
@@ -82,14 +82,14 @@ def test_rerun_is_idempotent_keeps_status_and_notifies_once(db, client, login):
 
 
 def test_fair_match_is_stored_but_not_notified(db):
-    # semantic 1 (40) + price ratio 1.4 (4) + quantity 0.3 (4.5) + lead = needed (12)
-    # + no coordinates, different place (5) = 65.5: between MATCH_MIN 60 and NOTIFY_MIN 70
+    # semantic 1 (40) + price ratio 1.8 (3.4) + quantity 0.3 (4.5) + lead = needed (12)
+    # + no coordinates, different place (5) = 64.9: between MATCH_MIN 55 and NOTIFY_MIN 70
     r = add_requirement(db, latitude=None, longitude=None)
     add_offering(
         db,
         "Fair",
         available_quantity=30,
-        unit_price=14,
+        unit_price=18,
         lead_time_days=10,
         location="Pune",
         latitude=None,
@@ -98,7 +98,7 @@ def test_fair_match_is_stored_but_not_notified(db):
     match_requirement(r.id)
     db.expire_all()
     match = db.scalars(select(Match)).one()
-    assert (match.score, match.status) == (65.5, "new")
+    assert (match.score, match.status) == (64.9, "new")
     assert db.scalar(select(func.count()).select_from(Notification)) == 0
 
 
