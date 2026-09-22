@@ -18,6 +18,18 @@ const days = (min) =>
     .min(min, min === 0 ? 'Cannot be negative' : 'At least 1 day')
     .max(3650, 'At most 3650 days');
 const oneOf = (values, message) => z.string().refine((v) => values.includes(v), message);
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+const photo = z
+  .any()
+  .optional()
+  .refine(
+    (files) => !files?.[0] || files[0].size <= MAX_PHOTO_BYTES,
+    'Photo must be 5 MB or smaller',
+  )
+  .refine(
+    (files) => !files?.[0] || ['image/jpeg', 'image/png', 'image/webp'].includes(files[0].type),
+    'Use a JPG, PNG or WebP photo',
+  );
 
 /** @param {import('../api/client.js').Meta} meta */
 export function requirementSchema(meta) {
@@ -31,6 +43,7 @@ export function requirementSchema(meta) {
     location: text(2, 200),
     needed_within_days: days(1),
     notes: optionalText,
+    photo,
   });
 }
 
@@ -48,6 +61,7 @@ export function offeringSchema(meta) {
     lead_time_days: days(0),
     delivery_scope: oneOf(Object.keys(meta.delivery_scopes), 'Choose a delivery scope'),
     notes: optionalText,
+    photo,
   });
 }
 

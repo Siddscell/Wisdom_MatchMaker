@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { ApiError } from '../api/client.js';
 import { zodResolver } from '../lib/schemas.js';
@@ -6,19 +6,42 @@ import { zodResolver } from '../lib/schemas.js';
 /**
  * @typedef {{ name: string, label: string, type?: 'text'|'email'|'number'|'textarea'|'select',
  *   options?: string[], hint?: string, wide?: boolean, optional?: boolean,
- *   suggest?: (value: string) => Promise<Record<string, string|null>> }} FieldSpec
+ *   suggest?: (value: string) => Promise<Record<string, string|null>>,
+ *   current?: string }} FieldSpec  (type 'photo': a file input; `current` is the existing photo URL)
  *   suggest: on blur, fills still-empty fields from the returned values.
  */
+
+function PhotoInput({ common, current }) {
+  const [preview, setPreview] = useState(current || null);
+  const { onChange, ...rest } = common;
+  return (
+    <div className="flex items-center gap-4">
+      {preview && <img src={preview} alt="" className="h-20 w-20 rounded-xl object-cover" />}
+      <input
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="text-sm file:mr-3 file:rounded-full file:border-0 file:bg-ink file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
+        {...rest}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          setPreview(file ? URL.createObjectURL(file) : current || null);
+          onChange(event);
+        }}
+      />
+    </div>
+  );
+}
 
 function Control({ field, id, register, invalid, describedBy }) {
   const common = {
     id,
-    className: 'input',
+    className: field.type === 'photo' ? undefined : 'input',
     'aria-invalid': invalid,
     'aria-describedby': describedBy,
     ...register(field.name),
   };
   if (field.type === 'textarea') return <textarea rows={3} {...common} />;
+  if (field.type === 'photo') return <PhotoInput common={common} current={field.current} />;
   if (field.type === 'select') {
     return (
       <select {...common}>

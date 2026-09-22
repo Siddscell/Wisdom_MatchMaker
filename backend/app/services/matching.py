@@ -6,16 +6,18 @@ today and from a worker queue (Celery/RQ) later without changes.
 
 import logging
 
+import httpx
+import numpy as np
 from sqlalchemy import case, func, literal, or_, select, true
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, undefer
 
 from app.config import get_settings
 from app.constants import DELIVERY_SCOPES, UNIT_FAMILIES
 from app.db import SessionLocal
 from app.models import Match, Offering, Requirement
 from app.services import scoring, units
-from app.services.embedding import embed, record_text
+from app.services.embedding import clip_image, clip_text, embed, record_text
 from app.services.geo import geocode, haversine_sql
 from app.services.ml import current_weights
 from app.services.notifications import notify
@@ -78,9 +80,17 @@ def _run(model: type[Requirement] | type[Offering], item_id: str) -> None:
 
 
 def prepare(db: Session, item: Requirement | Offering) -> None:
-    """Embed once and geocode once (both are skipped if already present)."""
+    """Embed once and geocode once (each step is skipped if already done)."""
+    text = record_text(item.product, item.notes)
     if item.embedding is None:
-        item.embedding = embed(record_text(item.product, item.notes))
+        item.embedding = embed(text)
+    if item.clip_text_embedding is None:
+        item.clip_text_embedding = clip_text(text)
+    if item.image_url and item.image_embedding is None:
+        try:
+            item.image_embedding = clip_image(item.image_url)
+        except (httpx.HTTPError, OSError, ValueError):  # bad download or not an image
+            log.warning("Could not embed %s; matching on text only", item.image_url, exc_info=True)
     if item.latitude is None and (point := geocode(db, item.location)):
         item.latitude, item.longitude = point
 
@@ -90,8 +100,11 @@ def score_pair(
 ) -> tuple[float, dict]:
     s = get_settings()
     required_in_offer_units = units.convert(r.quantity, r.unit, o.unit)
+    text_semantic = scoring.semantic(cos, s.SEMANTIC_FLOOR, s.SEMANTIC_RANGE)
+    visual = visual_similarity(r, o)
     parts = {
-        "semantic": scoring.semantic(cos, s.SEMANTIC_FLOOR, s.SEMANTIC_RANGE),
+        # A matching photo can only strengthen the evidence of meaning, never weaken it.
+        "semantic": max(text_semantic, visual or 0.0),
         "price": scoring.price(o.unit_price * required_in_offer_units, r.budget),
         "quantity": scoring.quantity(
             units.convert(o.available_quantity, o.unit, r.unit), r.quantity
@@ -102,8 +115,27 @@ def score_pair(
     score = scoring.final(parts, weights)
     # Raw inputs are kept too: they are the ranker's training features.
     breakdown = {**{k: round(v, 4) for k, v in parts.items()}, "cosine": round(cos, 4)}
+    breakdown["text_semantic"] = round(text_semantic, 4)
+    breakdown["visual"] = None if visual is None else round(visual, 4)
     breakdown["distance_km"] = None if distance_km is None else round(distance_km, 1)
     return score, breakdown
+
+
+def visual_similarity(r, o) -> float | None:
+    """CLIP evidence in 0..1 when at least one side has a photo: photo vs photo if both do,
+    otherwise the photo against the other side's description. None without photos."""
+    s = get_settings()
+    if r.image_embedding is not None and o.image_embedding is not None:
+        cos = float(np.dot(r.image_embedding, o.image_embedding))
+        return scoring.semantic(cos, s.VISUAL_IMAGE_FLOOR, s.VISUAL_IMAGE_RANGE)
+    photo, text = (
+        (r.image_embedding, o.clip_text_embedding)
+        if r.image_embedding is not None
+        else (o.image_embedding, r.clip_text_embedding)
+    )
+    if photo is None or text is None:
+        return None
+    return scoring.semantic(float(np.dot(photo, text)), s.VISUAL_TEXT_FLOOR, s.VISUAL_TEXT_RANGE)
 
 
 def _candidates(db: Session, item: Requirement | Offering):
@@ -141,6 +173,7 @@ def _candidates(db: Session, item: Requirement | Offering):
     vector_distance = other.embedding.cosine_distance(known.embedding)
     stmt = (
         select(other, 1 - vector_distance, distance)
+        .options(undefer(other.image_embedding), undefer(other.clip_text_embedding))
         .where(*filters)
         .order_by(vector_distance)
         .limit(s.RETRIEVE_K)

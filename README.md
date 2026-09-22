@@ -1,11 +1,12 @@
-# Supplier Matchmaker
+# Wisdom
 
 A web platform where **clients** post product requirements and **suppliers** post offerings.
 An AI matching engine finds and ranks the pairs that fit, stores them, notifies both sides
 (in-app and by email), and a dashboard shows requirements, offerings, matches, scores and status.
 
-The AI runs **locally and for free**: a small open embedding model (`BAAI/bge-small-en-v1.5`)
-on your own machine, no paid API.
+Wisdom is built for Indian businesses: prices in ₹, Indian cities, and photos of the item
+needed or offered. The AI runs **locally and for free** on your own machine, with no paid API:
+a text model (`BAAI/bge-small-en-v1.5`) and an image model (CLIP ViT-B/32).
 
 > Screenshots: _add after first deployment_ (home, client portal, dashboard).
 
@@ -38,7 +39,8 @@ You need **Python 3.11+**, **Node 18+** and a free **Supabase** account
 
 1. Create a project at [supabase.com](https://supabase.com) and note the database password.
 2. Open **SQL Editor** and run, in order, the files in `supabase/migrations/`:
-   `0001_init.sql`, `0002_indexes_rls.sql`, `0003_auth_ml.sql`.
+   `0001_init.sql`, `0002_indexes_rls.sql`, `0003_auth_ml.sql`, `0004_images.sql`
+   (the last one also creates the `listing-images` storage bucket for photos).
    (With `psql`: `psql "<connection string>" -f supabase/migrations/0001_init.sql`, and so on.)
 3. Click **Connect** and copy the **Session pooler** connection string. (Direct connection
    needs IPv6, which many home networks don't have; never use the transaction pooler.)
@@ -46,7 +48,21 @@ You need **Python 3.11+**, **Node 18+** and a free **Supabase** account
    email is on by default. With "Confirm email" on, new users must click a link before logging
    in; Supabase's built-in mailer is rate-limited, so for local testing you may switch it off.
 
-### 2. Configure
+### 2. Email with your Gmail (optional but recommended)
+
+Sign-up confirmations are sent by Supabase, match emails by the backend. Both can use one Gmail
+account:
+
+1. Turn on 2-Step Verification for the Google account, then create an **App Password** at
+   <https://myaccount.google.com/apppasswords> (16 characters; remove the spaces).
+2. Supabase → **Authentication → Emails → SMTP Settings**: enable custom SMTP. Sender email: your
+   Gmail address; sender name: `Wisdom`; host `smtp.gmail.com`; port `465`; username: your Gmail
+   address; password: the App Password.
+3. `backend/.env`: `EMAIL_BACKEND=smtp`, `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`,
+   `SMTP_USER=` and `SMTP_FROM=` your Gmail address, `SMTP_PASSWORD=` the App Password.
+   Emails are always kept in the outbox too, so none are lost if sending fails.
+
+### 3. Configure
 
 Copy `.env.example` twice:
 
@@ -56,14 +72,14 @@ Copy `.env.example` twice:
 - to `frontend/.env`: only the `VITE_*` lines are read. Set `VITE_SUPABASE_URL` and
   `VITE_SUPABASE_ANON_KEY` to the same two values (needed for accounts and live notifications).
 
-### 3. Start the backend
+### 4. Start the backend
 
 ```bash
 cd backend
 python -m venv .venv
 source .venv/bin/activate            # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
-python -m app.scripts.download_model # one-time, ~70 MB
+python -m app.scripts.download_model # one-time download of the models (~0.7 GB)
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -73,7 +89,7 @@ Check <http://localhost:8000/health>: it should report `"db": "ok"`. `model_load
 > Instead of the SQL editor you can create the schema from here with `alembic upgrade head`.
 > If you already ran the SQL files by hand, run `alembic stamp head` once instead.
 
-### 4. Start the frontend
+### 5. Start the frontend
 
 In a second terminal:
 
@@ -83,7 +99,7 @@ npm install
 npm run dev                          # http://localhost:5173
 ```
 
-### 5. Try it
+### 6. Try it
 
 Open <http://localhost:5173/dashboard> and click **Load sample data** (30 requirements,
 46 offerings). Matching runs in the background, and the dashboard fills within a few seconds.

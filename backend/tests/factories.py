@@ -2,6 +2,7 @@ from app.models import Offering, Requirement
 
 MUMBAI = {"location": "Mumbai", "latitude": 19.0760, "longitude": 72.8777}
 FAKE_VECTOR = [1.0] + [0.0] * 383  # identical vectors -> cosine 1 -> semantic sub-score 1
+FAKE_CLIP = [1.0] + [0.0] * 511
 
 PUNE = {"location": "Pune", "latitude": 18.5204, "longitude": 73.8567}
 

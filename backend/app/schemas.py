@@ -4,6 +4,7 @@ from typing import Annotated, Literal
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 from app.auth import User
+from app.config import get_settings
 from app.constants import CATEGORIES, DELIVERY_SCOPES, UNIT_FAMILIES
 from app.models import Match
 
@@ -28,6 +29,17 @@ Unit = Annotated[str, _one_of(UNIT_FAMILIES)]
 Scope = Annotated[str, _one_of(DELIVERY_SCOPES)]
 
 
+def _our_bucket(url: str | None) -> str | None:
+    # The backend downloads this URL to embed it, so only our own storage bucket is allowed.
+    prefix = f"{get_settings().SUPABASE_URL.rstrip('/')}/storage/v1/object/public/listing-images/"
+    if url and not url.startswith(prefix):
+        raise ValueError("must be an image uploaded to this site")
+    return url or None
+
+
+ImageUrl = Annotated[str | None, Field(max_length=1000), AfterValidator(_our_bucket)]
+
+
 class _In(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
@@ -42,6 +54,7 @@ class RequirementIn(_In):
     location: Name
     needed_within_days: int = Field(gt=0, le=3650)
     notes: Notes = None
+    image_url: ImageUrl = None
 
 
 class OfferingIn(_In):
@@ -56,6 +69,7 @@ class OfferingIn(_In):
     lead_time_days: int = Field(ge=0, le=3650)
     delivery_scope: Scope
     notes: Notes = None
+    image_url: ImageUrl = None
 
 
 class _Out(BaseModel):
@@ -74,6 +88,8 @@ class MatchOut(_Out):
     client_name: str
     offering_product: str
     supplier_name: str
+    requirement_image_url: str | None
+    offering_image_url: str | None
     # Contact details only for the two parties, and only once the match is accepted.
     client_email: str | None
     supplier_email: str | None
@@ -94,6 +110,8 @@ class MatchOut(_Out):
             client_name=r.client_name,
             offering_product=o.product_offered,
             supplier_name=o.supplier_name,
+            requirement_image_url=r.image_url,
+            offering_image_url=o.image_url,
             client_email=r.contact_email if share else None,
             supplier_email=o.contact_email if share else None,
         )
@@ -118,6 +136,7 @@ class RequirementPublic(_Out):
     longitude: float | None
     needed_within_days: int
     notes: str | None
+    image_url: str | None
     status: str
     created_at: datetime
 
@@ -144,6 +163,7 @@ class OfferingPublic(_Out):
     lead_time_days: int
     delivery_scope: str
     notes: str | None
+    image_url: str | None
     status: str
     created_at: datetime
 

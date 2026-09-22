@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../api/client.js';
 import DataTable from '../components/DataTable.jsx';
-import { EmptyState, QueryState, ScoreBar, StatusBadge } from '../components/ui.jsx';
+import { EmptyState, QueryState, ScoreBar, StatusBadge, Thumb } from '../components/ui.jsx';
 import { useListings, useMatches, useSummary } from '../hooks/queries.js';
 import { formatDate, formatNumber } from '../lib/format.js';
 
@@ -75,7 +75,16 @@ function RequirementsTab({ categories }) {
                 header: 'Client',
                 render: (r) => <span className="font-medium">{r.client_name}</span>,
               },
-              { key: 'product_requirement', header: 'Product' },
+              {
+                key: 'product_requirement',
+                header: 'Product',
+                render: (row) => (
+                  <span className="flex items-center gap-3">
+                    <Thumb src={row.image_url} size="h-10 w-10" />
+                    {row.product_requirement}
+                  </span>
+                ),
+              },
               { key: 'category', header: 'Category' },
               {
                 key: 'quantity',
@@ -135,7 +144,16 @@ function OfferingsTab({ categories }) {
                 header: 'Supplier',
                 render: (o) => <span className="font-medium">{o.supplier_name}</span>,
               },
-              { key: 'product_offered', header: 'Product' },
+              {
+                key: 'product_offered',
+                header: 'Product',
+                render: (row) => (
+                  <span className="flex items-center gap-3">
+                    <Thumb src={row.image_url} size="h-10 w-10" />
+                    {row.product_offered}
+                  </span>
+                ),
+              },
               { key: 'category', header: 'Category' },
               {
                 key: 'available_quantity',

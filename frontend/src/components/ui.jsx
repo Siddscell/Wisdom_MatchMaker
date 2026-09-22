@@ -1,5 +1,23 @@
 import { scoreBand } from '../lib/format.js';
 
+/** Wisdom's mark: two crossing petals, supply and demand. */
+export function Mark({ className = 'h-6 w-6' }) {
+  return (
+    <svg viewBox="0 0 32 32" className={className} aria-hidden="true">
+      <ellipse cx="16" cy="16" rx="5.5" ry="14" fill="currentColor" />
+      <ellipse cx="16" cy="16" rx="14" ry="5.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+/** Square photo thumbnail, or nothing when there is no photo. */
+export function Thumb({ src, size = 'h-12 w-12' }) {
+  if (!src) return null;
+  return (
+    <img src={src} alt="" loading="lazy" className={`${size} shrink-0 rounded-xl object-cover`} />
+  );
+}
+
 const BAND_STYLE = { strong: 'bg-band-strong', good: 'bg-band-good', fair: 'bg-band-fair' };
 const BAND_LABEL = { strong: 'Strong', good: 'Good', fair: 'Fair' };
 

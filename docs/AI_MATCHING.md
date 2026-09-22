@@ -86,6 +86,7 @@ calibration whenever the model changes. `score_breakdown.cosine` has what you ne
 | Understand descriptions | `BAAI/bge-small-en-v1.5` embeddings (fastembed, ONNX, 384 dims) | Best separation measured on our data; ~70 MB |
 | Rank / weight the sub-scores | Logistic regression on accept/reject (numpy, `services/ml.py`) | Learns from tens of labels; interpretable weights |
 | Suggest a category | 1-nearest-neighbour over existing listings (pgvector) | No extra model; improves as listings grow |
+| Compare photos | CLIP ViT-B/32 image + text (fastembed, 512 dims) | Photos and text in one space; same library, no new dependency |
 
 ### Learned ranker (built)
 
@@ -96,6 +97,34 @@ cold-start cliff: with no labels the weights are exactly the prior, and at 50 la
 and prior count equally. The score stays on the same 0-100 scale, so the 60/70 thresholds keep
 their meaning. Both outcomes must appear before anything is learned. The weights are stored in
 `model_state`, and each match run reads them.
+
+### Visual matching (photos)
+
+A requirement or offering can carry one photo (stored in Supabase Storage). Every listing also
+gets a CLIP *text* embedding of its description, so a photo can be compared with:
+
+- another photo (both sides have one), or
+- the other side's description (only one side has a photo).
+
+The two comparisons live on very different scales, so each has its own calibration, measured on
+20 freely licensed product photos from Wikimedia Commons (8 product types, 3 photos each, 4
+off-topic results removed by eye):
+
+| Comparison | AUC | same product, median | different products, 90th percentile |
+|---|---|---|---|
+| photo ↔ photo | 0.878 | 0.676 | 0.639 |
+| photo ↔ text | 0.946 | 0.264 | 0.229 |
+
+Calibration: `visual = clamp((cos − floor) / range)`, with the floor at the "different products"
+90th percentile (photo↔photo 0.64 / 0.16, photo↔text 0.23 / 0.09; all in config). CLIP matched
+15 of 20 photos to the right description first, which is useful but not perfect. So a photo can
+only **strengthen** a match: the meaning sub-score becomes `max(text, visual)`, and the hard
+filters still apply. `score_breakdown` keeps `text_semantic` and `visual` separately, so the
+learned ranker can later decide how much photos deserve.
+
+Limits: one photo per listing; top-K retrieval is still by text, so a listing whose text is far
+off but whose photo matches can miss the top 30 (`RETRIEVE_K`); re-measure the calibration on
+real uploads once there are some.
 
 ### Measured and rejected: cross-encoder rerankers
 

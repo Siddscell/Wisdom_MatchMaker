@@ -3,9 +3,10 @@ import { useMeta } from '../hooks/queries.js';
 import { accountOf, useSession } from '../hooks/useSession.js';
 import { supabase } from '../lib/supabase.js';
 import NotificationBell from './NotificationBell.jsx';
+import { Mark } from './ui.jsx';
 
 const navClass = ({ isActive }) =>
-  `rounded-md px-3 py-1.5 ${isActive ? 'bg-accent-soft font-medium text-accent-strong' : 'text-muted hover:text-ink'}`;
+  `px-3 py-1.5 ${isActive ? 'font-medium text-ink' : 'text-muted hover:text-ink'}`;
 
 export default function Layout() {
   const session = useSession();
@@ -26,14 +27,18 @@ export default function Layout() {
       >
         Skip to content
       </a>
-      <header className="sticky top-0 z-20 border-b border-line bg-paper/95 backdrop-blur">
-        <div className="mx-auto flex max-w-page flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
-          <Link to="/" className="font-display text-lg font-semibold">
-            Supplier<span className="text-accent"> Matchmaker</span>
+      <header className="sticky top-0 z-20 bg-paper/90 backdrop-blur">
+        <div className="mx-auto grid max-w-page grid-cols-[1fr_auto] items-center gap-x-6 gap-y-2 px-4 py-4 sm:grid-cols-[1fr_auto_1fr] sm:px-6">
+          <Link to="/" className="flex items-center gap-2 text-lg font-medium tracking-[-0.02em]">
+            <Mark />
+            Wisdom
           </Link>
-          <nav aria-label="Main" className="flex gap-1 text-sm">
+          <nav
+            aria-label="Main"
+            className="order-3 col-span-2 flex justify-center gap-1 text-sm sm:order-none sm:col-span-1"
+          >
             <NavLink to="/dashboard" className={navClass}>
-              Public dashboard
+              Listings
             </NavLink>
             {account && (
               <NavLink to="/me" className={navClass}>
@@ -41,7 +46,7 @@ export default function Layout() {
               </NavLink>
             )}
           </nav>
-          <div className="ml-auto flex items-center gap-2 text-sm">
+          <div className="flex items-center justify-end gap-2 text-sm">
             {account ? (
               <>
                 <span className="hidden text-muted md:inline">{account.email}</span>
@@ -53,11 +58,11 @@ export default function Layout() {
             ) : (
               session !== undefined && (
                 <>
-                  <Link to="/login" className="btn-secondary py-1.5">
+                  <Link to="/login" className="px-3 py-1.5 text-muted hover:text-ink">
                     Log in
                   </Link>
-                  <Link to="/register" className="btn-primary py-1.5">
-                    Register
+                  <Link to="/register" className="btn-primary">
+                    Get started
                   </Link>
                 </>
               )
@@ -70,9 +75,12 @@ export default function Layout() {
         <Outlet context={{ session, account, meta }} />
       </main>
 
-      <footer className="border-t border-line">
-        <div className="mx-auto flex max-w-page flex-wrap items-center justify-between gap-2 px-4 py-5 text-xs text-muted sm:px-6">
-          <p>Contact details are shared only between the two sides of an accepted match.</p>
+      <footer className="mt-16 border-t border-line">
+        <div className="mx-auto flex max-w-page flex-wrap items-center justify-between gap-3 px-4 py-6 text-xs text-muted sm:px-6">
+          <p className="flex items-center gap-2">
+            <Mark className="h-4 w-4 text-ink" />
+            Wisdom. Contact details are shared only after both sides accept.
+          </p>
           {meta.data?.dev_mode && (
             <Link to="/dev/outbox" className="underline underline-offset-2 hover:text-ink">
               Dev: email outbox

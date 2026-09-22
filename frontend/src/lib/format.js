@@ -1,9 +1,13 @@
 const number = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 });
-const rupees = new Intl.NumberFormat('en-IN', {
-  style: 'currency',
-  currency: 'INR',
-  maximumFractionDigits: 2,
-});
+const rupees = (digits) =>
+  new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+const wholeRupees = rupees(0);
+const rupeesAndPaise = rupees(2);
 const date = new Intl.DateTimeFormat('en-IN', {
   day: 'numeric',
   month: 'short',
@@ -11,8 +15,9 @@ const date = new Intl.DateTimeFormat('en-IN', {
 });
 
 export const formatNumber = (value) => number.format(value);
-/** ₹ with Indian digit grouping, e.g. ₹1,50,000 */
-export const formatINR = (value) => rupees.format(value);
+/** ₹ with Indian digit grouping: ₹1,50,000 and ₹68.50 */
+export const formatINR = (value) =>
+  (Number.isInteger(value) ? wholeRupees : rupeesAndPaise).format(value);
 export const formatDate = (iso) => date.format(new Date(iso));
 
 /** Score bands from the spec: >= 85 strong, 70-84 good, 60-69 fair. */

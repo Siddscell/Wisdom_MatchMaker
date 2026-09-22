@@ -43,13 +43,14 @@ def _schema():
 
 @pytest.fixture
 def db(_schema, monkeypatch):
-    from factories import FAKE_VECTOR
+    from factories import FAKE_CLIP, FAKE_VECTOR
 
     from app.db import SessionLocal, engine
     from app.services import matching, ml
 
     monkeypatch.setattr(matching, "embed", lambda text: FAKE_VECTOR)
     monkeypatch.setattr(ml, "embed", lambda text: FAKE_VECTOR)
+    monkeypatch.setattr(matching, "clip_text", lambda text: FAKE_CLIP)
     with engine.begin() as conn:
         conn.exec_driver_sql(
             "truncate requirements, offerings, matches, notifications, email_outbox, "

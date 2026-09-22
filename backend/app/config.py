@@ -24,6 +24,14 @@ class Settings(BaseSettings):
 
     EMBEDDING_MODEL: str = "BAAI/bge-small-en-v1.5"
     EMBEDDING_DIM: int = 384
+    # Visual matching (CLIP). Photos and text share one space but on different scales, so each
+    # comparison has its own calibration, measured on sample photos (docs/AI_MATCHING.md).
+    CLIP_IMAGE_MODEL: str = "Qdrant/clip-ViT-B-32-vision"
+    CLIP_TEXT_MODEL: str = "Qdrant/clip-ViT-B-32-text"
+    VISUAL_IMAGE_FLOOR: float = 0.64  # photo <-> photo
+    VISUAL_IMAGE_RANGE: float = 0.16
+    VISUAL_TEXT_FLOOR: float = 0.23  # photo <-> text
+    VISUAL_TEXT_RANGE: float = 0.09
 
     STRICT_CATEGORY: bool = True
     MIN_QTY_FRACTION: float = 0.25

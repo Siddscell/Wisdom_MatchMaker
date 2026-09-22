@@ -111,7 +111,9 @@ def _router(
         for key, value in changes.items():
             setattr(item, key, value)
         if text_fields & changes.keys():
-            item.embedding = None  # re-embedded by the matching run below
+            item.embedding = item.clip_text_embedding = None  # re-embedded by the run below
+        if "image_url" in changes:
+            item.image_embedding = None
         if "location" in changes:
             item.latitude = item.longitude = None  # re-geocoded
         db.commit()

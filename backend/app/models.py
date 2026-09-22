@@ -12,6 +12,7 @@ from app.config import get_settings
 from app.db import Base
 
 _DIM = get_settings().EMBEDDING_DIM
+CLIP_DIM = 512  # clip-ViT-B-32; must match vector(512) in migration 0004
 
 
 def _id() -> Mapped[str]:
@@ -45,6 +46,9 @@ class Requirement(Base):
     needed_within_days: Mapped[int]
     notes: Mapped[str | None]
     embedding = mapped_column(Vector(_DIM), nullable=True, deferred=True)
+    image_url: Mapped[str | None]
+    image_embedding = mapped_column(Vector(CLIP_DIM), nullable=True, deferred=True)
+    clip_text_embedding = mapped_column(Vector(CLIP_DIM), nullable=True, deferred=True)
     status: Mapped[str] = mapped_column(server_default="open")
     created_at: Mapped[datetime] = _created()
 
@@ -76,6 +80,9 @@ class Offering(Base):
     delivery_scope: Mapped[str]
     notes: Mapped[str | None]
     embedding = mapped_column(Vector(_DIM), nullable=True, deferred=True)
+    image_url: Mapped[str | None]
+    image_embedding = mapped_column(Vector(CLIP_DIM), nullable=True, deferred=True)
+    clip_text_embedding = mapped_column(Vector(CLIP_DIM), nullable=True, deferred=True)
     status: Mapped[str] = mapped_column(server_default="active")
     created_at: Mapped[datetime] = _created()
 

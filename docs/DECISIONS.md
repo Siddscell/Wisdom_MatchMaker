@@ -70,3 +70,14 @@ Choices made where the spec was silent, and every deliberate deviation. One line
 - **`quintal` (100 kg) added as a unit.** Reason: standard in Indian agricultural trade; converts within the mass family.
 - **Delivery radii unchanged** (local 100 km, regional 500 km, national 5000 km). Reason: 5000 km covers India end to end.
 - **Currency is still not a field:** all amounts are treated as INR.
+
+## Wisdom brand, photos and visual matching
+
+- **Product name Wisdom; green gradients, black and white; one typeface (Instrument Sans).** The hero art is hand-made SVG (hills and two discs, supply and demand), not stock or generated imagery. Reason: requested; loads instantly and has no licensing.
+- **The landing page shows live platform numbers instead of partner logos.** Reason: there are no partners yet, and fake logos would mislead.
+- **One photo per listing**, uploaded by the browser straight to the public Supabase Storage bucket `listing-images`, into a folder named after the user's id (a storage policy enforces this). The listing stores only the URL. Reason: simplest path; several photos per listing can come later with a small table.
+- **The backend only accepts image URLs from that bucket.** Reason: it downloads the image to embed it, so any other URL would let users make the server fetch arbitrary addresses (SSRF).
+- **CLIP ViT-B/32 through fastembed** for photos; calibrated separately for photo↔photo and photo↔text on sample photos (AI_MATCHING.md). Reason: runs locally at no cost, and the library was already a dependency.
+- **A photo can only raise the meaning sub-score (`max(text, visual)`), never lower it.** Reason: CLIP was right 15/20 times on our sample, which is good evidence to add but not strong enough to veto text.
+- **A photo that can't be downloaded or read is skipped** (logged); matching continues on text. Reason: never block a listing on its photo.
+- **Match emails are sent through Gmail SMTP** when `SMTP_PASSWORD` (a Google App Password) is set; the outbox always keeps a copy. The password is only ever typed into `backend/.env` and Supabase by the owner.

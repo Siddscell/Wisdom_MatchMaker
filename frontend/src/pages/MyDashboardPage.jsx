@@ -4,10 +4,24 @@ import { Link, Navigate, useOutletContext } from 'react-router-dom';
 import { api } from '../api/client.js';
 import EntityForm from '../components/EntityForm.jsx';
 import MatchActions from '../components/MatchActions.jsx';
-import { EmptyState, QueryState, ScoreBar, Skeleton, StatusBadge } from '../components/ui.jsx';
+import {
+  EmptyState,
+  QueryState,
+  ScoreBar,
+  Skeleton,
+  StatusBadge,
+  Thumb,
+} from '../components/ui.jsx';
 import { useMatches, useMyListings } from '../hooks/queries.js';
 import { formatINR, formatNumber } from '../lib/format.js';
 import { offeringSchema, requirementSchema } from '../lib/schemas.js';
+import { uploadListingImage } from '../lib/supabase.js';
+
+/** Form values -> API payload: uploads a newly chosen photo, else keeps the current one. */
+async function toPayload({ photo, ...values }, currentUrl = null) {
+  const file = photo?.[0];
+  return { ...values, image_url: file ? await uploadListingImage(file) : currentUrl };
+}
 
 const suggestCategory = (text) => api.suggestCategory(text);
 
@@ -44,11 +58,19 @@ const ROLES = {
       },
       { name: 'needed_within_days', label: 'Delivery timeline (days)', type: 'number' },
       { name: 'notes', label: 'Additional notes', type: 'textarea', wide: true, optional: true },
+      {
+        name: 'photo',
+        label: 'Photo of what you need',
+        type: 'photo',
+        wide: true,
+        optional: true,
+        hint: 'A picture of the part or a sample. Wisdom compares it with suppliers’ photos and descriptions.',
+      },
     ],
     title_of: (r) => r.product_requirement,
     details: (r) =>
       `${formatNumber(r.quantity)} ${r.unit} · budget ${formatINR(r.budget)} · ${r.location} · within ${r.needed_within_days} days`,
-    counterpart: (m) => [m.supplier_name, m.offering_product],
+    counterpart: (m) => [m.supplier_name, m.offering_product, m.offering_image_url],
   },
   supplier: {
     table: 'offerings',
@@ -97,17 +119,27 @@ const ROLES = {
         optional: true,
       },
       { name: 'notes', label: 'Additional notes', type: 'textarea', wide: true, optional: true },
+      {
+        name: 'photo',
+        label: 'Product photo',
+        type: 'photo',
+        wide: true,
+        optional: true,
+        hint: 'JPG, PNG or WebP up to 5 MB. Buyers who share a photo are matched against it.',
+      },
     ],
     title_of: (o) => o.product_offered,
     details: (o) =>
       `${formatNumber(o.available_quantity)} ${o.unit} · ${formatINR(o.unit_price)} per ${o.unit} · ${o.location} · ${o.lead_time_days} days lead · ${o.delivery_scope}`,
-    counterpart: (m) => [m.client_name, m.requirement_product],
+    counterpart: (m) => [m.client_name, m.requirement_product, m.requirement_image_url],
   },
 };
 
 /** Form values for editing: only the fields the form knows, blanks for nulls. */
 const editable = (fields, item) =>
-  Object.fromEntries(fields.map((f) => [f.name, item[f.name] ?? '']));
+  Object.fromEntries(
+    fields.filter((f) => f.type !== 'photo').map((f) => [f.name, item[f.name] ?? '']),
+  );
 
 function ItemMatches({ role, item }) {
   const config = ROLES[role];
@@ -125,12 +157,15 @@ function ItemMatches({ role, item }) {
       {(rows) => (
         <ul className="divide-y divide-line">
           {rows.slice(0, 5).map((match) => {
-            const [name, product] = config.counterpart(match);
+            const [name, product, image] = config.counterpart(match);
             return (
               <li key={match.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                <div className="min-w-0">
-                  <p className="font-medium">{name}</p>
-                  <p className="truncate text-sm text-muted">{product}</p>
+                <div className="flex min-w-0 items-center gap-3">
+                  <Thumb src={image} size="h-10 w-10" />
+                  <div className="min-w-0">
+                    <p className="font-medium">{name}</p>
+                    <p className="truncate text-sm text-muted">{product}</p>
+                  </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <ScoreBar score={match.score} />
@@ -160,12 +195,17 @@ function ItemCard({ role, item, meta }) {
       api[config.table].setStatus(item.id, item.status === active ? inactive : active),
     onSuccess: refresh,
   });
-  const fields = config.fields(meta);
+  const fields = config
+    .fields(meta)
+    .map((f) => (f.type === 'photo' ? { ...f, current: item.image_url } : f));
 
   return (
     <li className="card">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <h3 className="text-lg font-medium">{config.title_of(item)}</h3>
+        <div className="flex min-w-0 items-center gap-3">
+          <Thumb src={item.image_url} />
+          <h3 className="text-lg font-medium">{config.title_of(item)}</h3>
+        </div>
         <div className="flex items-center gap-2">
           <StatusBadge status={item.status} />
           <button
@@ -199,7 +239,7 @@ function ItemCard({ role, item, meta }) {
             defaultValues={editable(fields, item)}
             submitLabel="Save changes"
             onSubmit={async (values) => {
-              await api[config.table].update(item.id, values);
+              await api[config.table].update(item.id, await toPayload(values, item.image_url));
               setEditing(false);
               refresh();
             }}
@@ -256,7 +296,7 @@ export default function MyDashboardPage() {
   }
 
   const submit = async (values) => {
-    setCreated(await api[config.table].create(values));
+    setCreated(await api[config.table].create(await toPayload(values)));
     queryClient.invalidateQueries({ queryKey: [config.table] });
     queryClient.invalidateQueries({ queryKey: ['summary'] });
   };
