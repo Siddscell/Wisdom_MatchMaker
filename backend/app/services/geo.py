@@ -57,7 +57,7 @@ def _nominatim(place: str) -> tuple[float | None, float | None]:
         try:
             response = httpx.get(
                 NOMINATIM_URL,
-                params={"q": place, "format": "json", "limit": 1},
+                params={"q": place, "format": "json", "limit": 1, "countrycodes": "in"},
                 headers={"User-Agent": "supplier-client-matchmaking/0.1"},
                 timeout=10,
             )

@@ -50,8 +50,8 @@ def test_delivery(lead, needed, expected):
         (1025, "x", "y", 0.5),
         (2000, "x", "y", 0.0),
         (9000, "x", "y", 0.0),
-        (None, "Leeds ", "leeds", 1.0),
-        (None, "Leeds", "York", 0.5),
+        (None, "Pune ", "pune", 1.0),
+        (None, "Pune", "Nashik", 0.5),
     ],
 )
 def test_location(distance, a, b, expected):

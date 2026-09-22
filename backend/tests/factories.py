@@ -1,9 +1,9 @@
 from app.models import Offering, Requirement
 
-MANCHESTER = {"location": "Manchester", "latitude": 53.4808, "longitude": -2.2426}
+MUMBAI = {"location": "Mumbai", "latitude": 19.0760, "longitude": 72.8777}
 FAKE_VECTOR = [1.0] + [0.0] * 383  # identical vectors -> cosine 1 -> semantic sub-score 1
 
-LONDON = {"location": "London", "latitude": 51.5074, "longitude": -0.1278}
+PUNE = {"location": "Pune", "latitude": 18.5204, "longitude": 73.8567}
 
 
 def add_requirement(db, **overrides) -> Requirement:
@@ -17,7 +17,7 @@ def add_requirement(db, **overrides) -> Requirement:
         budget=1000,
         needed_within_days=10,
         embedding=FAKE_VECTOR,
-        **MANCHESTER,
+        **MUMBAI,
     )
     item = Requirement(**{**fields, **overrides})
     db.add(item)
@@ -37,7 +37,7 @@ def add_offering(db, supplier_name: str, **overrides) -> Offering:
         lead_time_days=5,
         delivery_scope="local",
         embedding=FAKE_VECTOR,
-        **MANCHESTER,
+        **MUMBAI,
     )
     item = Offering(**{**fields, **overrides})
     db.add(item)

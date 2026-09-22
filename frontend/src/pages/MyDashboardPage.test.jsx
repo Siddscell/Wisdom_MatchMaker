@@ -27,9 +27,9 @@ const CASES = {
     text: {
       'Product requirement': 'MS pipes, 2 inch',
       Quantity: '100',
-      'Budget (total)': '2500',
+      'Budget (total, ₹)': '2500',
       'Delivery timeline (days)': '14',
-      'Delivery location': 'Manchester',
+      'Delivery location': 'Pune',
     },
     select: { Unit: 'kg' },
     expected: { client_name: 'Acme Ltd', quantity: 100, budget: 2500, needed_within_days: 14 },
@@ -41,9 +41,9 @@ const CASES = {
     text: {
       'Product offered': 'Mild steel tubes, 50 mm',
       'Available quantity': '5',
-      'Unit price': '1300',
+      'Unit price (₹)': '1300',
       'Lead time (days)': '0',
-      Location: 'Leeds',
+      Location: 'Mumbai',
     },
     select: { Unit: 'tonne', 'Delivery scope': 'regional' },
     expected: { supplier_name: 'Acme Ltd', available_quantity: 5, unit_price: 1300 },

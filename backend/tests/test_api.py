@@ -12,7 +12,7 @@ REQUIREMENT = {
     "quantity": 100,
     "unit": "kg",
     "budget": 1000,
-    "location": "Manchester",
+    "location": "Mumbai",
     "needed_within_days": 10,
 }
 BUYER = "buyer@acme.test"  # factories' default requirement owner
@@ -30,7 +30,7 @@ def assert_error(response, status, code):
 def test_meta(client):
     meta = client.get("/api/meta").json()
     assert "Packaging" in meta["categories"]
-    assert meta["units"][:2] == ["kg", "tonne"]
+    assert meta["units"][:3] == ["kg", "quintal", "tonne"]
     assert meta["delivery_scopes"]["international"] is None
     assert meta["score_thresholds"] == {"match_min": 60, "notify_min": 70}
 

@@ -59,7 +59,9 @@ We labelled the 79 candidate pairs the seed data produces under the original cal
 | **0.65 (chosen)** | 36 / 34 | 14 / **1** |
 | 0.70 | 34 / 31 | 3 / 0 |
 
-0.65 removes nearly all wrong notifications while keeping the true matches. Re-run this
+0.65 removes nearly all wrong notifications while keeping the true matches. (Measured on the
+earlier UK sample set; on the current Indian sample set, all 30 requirements still rank the correct
+supplier first.) Re-run this
 calibration whenever the model changes. `score_breakdown.cosine` has what you need.
 
 ## Limitations
@@ -75,7 +77,7 @@ calibration whenever the model changes. `score_breakdown.cosine` has what you ne
   with the same 384 dimensions (e.g. `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`),
   clear the `embedding` columns so records re-embed, and recalibrate. A different dimension
   needs a migration changing `vector(384)`.
-- **Currency.** Budgets and prices are assumed to be in the same currency.
+- **Currency.** All budgets and prices are treated as Indian rupees (INR).
 
 ## Models in use (all free, all local)
 

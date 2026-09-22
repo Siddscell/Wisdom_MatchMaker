@@ -6,7 +6,7 @@ import EntityForm from '../components/EntityForm.jsx';
 import MatchActions from '../components/MatchActions.jsx';
 import { EmptyState, QueryState, ScoreBar, Skeleton, StatusBadge } from '../components/ui.jsx';
 import { useMatches, useMyListings } from '../hooks/queries.js';
-import { formatNumber } from '../lib/format.js';
+import { formatINR, formatNumber } from '../lib/format.js';
 import { offeringSchema, requirementSchema } from '../lib/schemas.js';
 
 const suggestCategory = (text) => api.suggestCategory(text);
@@ -33,12 +33,12 @@ const ROLES = {
         suggest: suggestCategory,
       },
       { name: 'category', label: 'Category', type: 'select', options: meta.categories },
-      { name: 'location', label: 'Delivery location', hint: 'City, e.g. Manchester' },
+      { name: 'location', label: 'Delivery location', hint: 'City, e.g. Pune' },
       { name: 'quantity', label: 'Quantity', type: 'number' },
       { name: 'unit', label: 'Unit', type: 'select', options: meta.units },
       {
         name: 'budget',
-        label: 'Budget (total)',
+        label: 'Budget (total, ₹)',
         type: 'number',
         hint: 'For the whole quantity. Private to you.',
       },
@@ -47,7 +47,7 @@ const ROLES = {
     ],
     title_of: (r) => r.product_requirement,
     details: (r) =>
-      `${formatNumber(r.quantity)} ${r.unit} · budget ${formatNumber(r.budget)} · ${r.location} · within ${r.needed_within_days} days`,
+      `${formatNumber(r.quantity)} ${r.unit} · budget ${formatINR(r.budget)} · ${r.location} · within ${r.needed_within_days} days`,
     counterpart: (m) => [m.supplier_name, m.offering_product],
   },
   supplier: {
@@ -71,12 +71,12 @@ const ROLES = {
         suggest: suggestCategory,
       },
       { name: 'category', label: 'Category', type: 'select', options: meta.categories },
-      { name: 'location', label: 'Location', hint: 'City, e.g. Leeds' },
+      { name: 'location', label: 'Location', hint: 'City, e.g. Mumbai' },
       { name: 'available_quantity', label: 'Available quantity', type: 'number' },
       { name: 'unit', label: 'Unit', type: 'select', options: meta.units },
       {
         name: 'unit_price',
-        label: 'Unit price',
+        label: 'Unit price (₹)',
         type: 'number',
         hint: 'Per unit. Private to you.',
       },
@@ -100,7 +100,7 @@ const ROLES = {
     ],
     title_of: (o) => o.product_offered,
     details: (o) =>
-      `${formatNumber(o.available_quantity)} ${o.unit} · ${formatNumber(o.unit_price)} per ${o.unit} · ${o.location} · ${o.lead_time_days} days lead · ${o.delivery_scope}`,
+      `${formatNumber(o.available_quantity)} ${o.unit} · ${formatINR(o.unit_price)} per ${o.unit} · ${o.location} · ${o.lead_time_days} days lead · ${o.delivery_scope}`,
     counterpart: (m) => [m.client_name, m.requirement_product],
   },
 };

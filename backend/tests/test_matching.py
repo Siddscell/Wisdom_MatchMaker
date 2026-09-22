@@ -1,5 +1,5 @@
 import pytest
-from factories import LONDON, add_offering, add_requirement
+from factories import PUNE, add_offering, add_requirement
 from sqlalchemy import func, select
 
 from app.models import EmailOutbox, Match, Notification
@@ -15,16 +15,16 @@ def matched_suppliers(db, requirement_id):
 
 
 def test_hard_filters_exclude_what_they_should(db):
-    r = add_requirement(db)  # 100 kg, budget 1000, 10 days, Manchester
+    r = add_requirement(db)  # 100 kg, budget 1000, 10 days, Mumbai
     add_offering(db, "Good")
     add_offering(db, "Tonnes", available_quantity=0.5, unit="tonne", unit_price=5000)
-    add_offering(db, "FarButGlobal", delivery_scope="international", **LONDON)
+    add_offering(db, "FarButGlobal", delivery_scope="international", **PUNE)
     add_offering(db, "OtherCategory", category="Packaging")
     add_offering(db, "Litres", unit="litre")
     add_offering(db, "TooLittle", available_quantity=20)  # < 25% of 100
     add_offering(db, "TooSlow", lead_time_days=21)  # > 2 x 10 days
     add_offering(db, "TooPricey", unit_price=16)  # 1600 > 1.5 x 1000
-    add_offering(db, "TooFar", **LONDON)  # local scope, ~260 km away
+    add_offering(db, "TooFar", **PUNE)  # local scope, ~120 km away
     add_offering(db, "Inactive", status="inactive")
 
     match_requirement(r.id)
@@ -91,7 +91,7 @@ def test_fair_match_is_stored_but_not_notified(db):
         available_quantity=30,
         unit_price=14,
         lead_time_days=10,
-        location="Leeds",
+        location="Pune",
         latitude=None,
         longitude=None,
     )

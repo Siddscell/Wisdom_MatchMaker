@@ -62,3 +62,11 @@ Choices made where the spec was silent, and every deliberate deviation. One line
 - **Category suggestion comes from the nearest existing listing (1-NN), not zero-shot.** Reason: 76/76 vs 47/76 on the seed data. It's only a suggestion that fills an empty field, and users can change it.
 - **Kept as code, not learned:** unit conversion and the hard filters. Reason: they're facts or explicit business limits (all configurable), and a model would only learn them approximately.
 - **The frontend smoke test no longer covers the logged-out redirect.** Reason: jsdom's `AbortSignal` is incompatible with React Router navigation in tests; the redirect is one `<Navigate>`.
+
+## India
+
+- **The platform targets India:** sample data uses Indian companies, cities and rupee prices; money shows as ₹ with Indian digit grouping (`en-IN`, e.g. ₹1,50,000); form hints use Indian cities. Reason: requested.
+- **Geocoding is restricted to India** (Nominatim `countrycodes=in`). Reason: "Nagpur" or "Thane" must not resolve to a namesake abroad. Remove the parameter if cross-border trade is added.
+- **`quintal` (100 kg) added as a unit.** Reason: standard in Indian agricultural trade; converts within the mass family.
+- **Delivery radii unchanged** (local 100 km, regional 500 km, national 5000 km). Reason: 5000 km covers India end to end.
+- **Currency is still not a field:** all amounts are treated as INR.

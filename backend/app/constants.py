@@ -22,6 +22,7 @@ DELIVERY_SCOPES = {
 # unit -> (family, factor to the family's base unit)
 UNIT_FAMILIES = {
     "kg": ("mass", 1),
+    "quintal": ("mass", 100),  # common in Indian agricultural trade
     "tonne": ("mass", 1000),
     "piece": ("count", 1),
     "box": ("count", 1),
